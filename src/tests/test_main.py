@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 from api.main import app
 
 client = TestClient(app)
-with open("./test-data/sample_customer_spending.csv", "r") as file: # Read sample CSV data and convert it to a list of dictionaries for testing 
+with open("./src/test-data/sample_customer_spending.csv", "r") as file: # Read sample CSV data and convert it to a list of dictionaries for testing 
     sample_csv_data = file.read()
     sample_csv_lines = sample_csv_data.splitlines()
     sample_csv_headers = sample_csv_lines[0].split(",")
