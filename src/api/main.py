@@ -2,7 +2,11 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="Nationwide TDP Carbon API", version="0.1.0")
+app = FastAPI(
+    title="Nationwide TDP Carbon API", 
+    description="API for calculating carbon emissions based on spending data",
+    version="0.1.0"
+)
 
 class SpendingItem(BaseModel):
     category: str = Field(min_length=1)
@@ -11,11 +15,15 @@ class SpendingItem(BaseModel):
 class CalculateRequest(BaseModel):
     spending: list[SpendingItem] = Field(min_length=1)
 
-@app.get("/health")
+@app.get("/v1/health")
 def health():
     return {"status": "healthy"}
 
-@app.post("/calculate")
+@app.get("/v1/docs")
+def docs():
+    return {"message": "API documentation is available at /v1/docs"}
+
+@app.post("/v1/calculate")
 def calculate(request: CalculateRequest):
     # Placeholder only: replace with database-backed emissions factors in Sprint 2.
     breakdown = [
