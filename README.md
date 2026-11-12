@@ -1,6 +1,6 @@
 # Personal Carbon Footprint & Savings Advisor
 
-**Nationwide TDP 2026 --- Capstone Project**\
+**Nationwide TDP 2026 - Capstone Project**\
 **Learner Brief**
 
 ## Project Goal
@@ -57,13 +57,7 @@ The product should allow a customer to:
 
 ## Technology
 
-Choose one development language:
-
-- C# v8
 - Python 3.14
-
-The solution should use:
-
 - GitHub for source control.
 - SQL for emissions and spending data.
 - Automated testing.
@@ -71,8 +65,6 @@ The solution should use:
 - GitHub Actions for CI/CD.
 
 ### Recommended Python Technologies
-
-For Python 3.14, the recommended technologies are:
 
 - FastAPI
 - Uvicorn
@@ -97,7 +89,7 @@ The CI/CD pipeline should demonstrate:
 
 ## Delivery Plan: Four Sprints of Three Days
 
-### Sprint 1 --- Setup & First MVP
+### Sprint 1 - Setup & First MVP
 
 **Outcome:** Customer can submit spending and the data is securely
 stored.
@@ -106,7 +98,7 @@ stored.
 
 - Agile planning.
 - GitHub and branching.
-- C# v8 or Python 3.14.
+- Python 3.14.
 - API.
 - SQL.
 - Testing.
