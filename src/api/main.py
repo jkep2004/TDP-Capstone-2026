@@ -1,5 +1,7 @@
 # NW TDP 2026 v2
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import RedirectResponse
+from fastapi.requests import Request
 from pydantic import BaseModel, Field
 
 app = FastAPI(
@@ -16,12 +18,13 @@ class CalculateRequest(BaseModel):
     spending: list[SpendingItem] = Field(min_length=1)
 
 @app.get("/v1/health")
-def health():
+def health(): # Health check endpoint
     return {"status": "healthy"}
 
 @app.get("/v1/docs")
-def docs():
-    return {"message": "API documentation is available at /v1/docs"}
+def docs(): # Redirect to the FastAPI docs
+    return RedirectResponse(url="/docs", status_code=status.HTTP_303_SEE_OTHER)    
+
 
 @app.post("/v1/calculate")
 def calculate(request: CalculateRequest):
