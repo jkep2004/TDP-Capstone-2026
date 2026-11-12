@@ -1,5 +1,7 @@
-class CalculateRequest(BaseModel):
-    spending: list[SpendingItem] = Field(min_length=1)
+from fastapi import APIRouter
+
+
+router = APIRouter()
 
 @router.get("")
 def health():

@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
+from .SpendingItem import SpendingItem
 
-class calculateRequest(BaseModel):
-    spending: list[SpendingItem] = Field(..., min_items=1)
-   
+class CalculateRequest(BaseModel):
+    spending: list[SpendingItem] = Field(min_length=1)
+
