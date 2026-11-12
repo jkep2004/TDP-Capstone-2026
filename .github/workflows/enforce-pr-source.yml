@@ -4,7 +4,6 @@ name: PR Source Branch Policy
 on:
   pull_request:
     branches:
-      - dev
       - main
     types:
       - opened
@@ -28,22 +27,8 @@ jobs:
           SOURCE_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           TARGET_REPO: ${{ github.repository }}
         run: |
-          if [[ "$TARGET_BRANCH" == "main" ]]; then
-            if [[ "$SOURCE_BRANCH" != "dev" || "$SOURCE_REPO" != "$TARGET_REPO" ]]; then
-              echo "ERROR: Only dev can merge into main."
-              exit 1
-            fi
-
-          elif [[ "$TARGET_BRANCH" == "dev" ]]; then
-            case "$SOURCE_BRANCH" in
-              feature/*|bugfix/*)
-                echo "Valid source branch: $SOURCE_BRANCH"
-                ;;
-              *)
-                echo "ERROR: Only feature/* or bugfix/* branches can merge into dev."
-                exit 1
-                ;;
-            esac
+          if [[ "$SOURCE_BRANCH" != "dev" || "$SOURCE_REPO" != "$TARGET_REPO" ]]; then
+            echo "ERROR: Only dev can merge into main."
+            exit 1
           fi
-
           echo "PR source branch validation passed."
