@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 app = FastAPI(title="Nationwide TDP Carbon API", version="0.1.0")
 
 class SpendingItem(BaseModel):
+    CustomerI: int = Field(gt=0)
     category: str = Field(min_length=1)
     amount: float = Field(ge=0)
 
