@@ -41,6 +41,7 @@ app = FastAPI(
     },
     openapi_tags=tags_metadata,
 )
+
 app.mount(
     "/static",
     StaticFiles(directory=STATIC_DIR),
@@ -50,6 +51,7 @@ app.mount(
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return FileResponse(STATIC_DIR / "img" / "favicon.ico")
+
 
 router = APIRouter()
 app.include_router(health.router, prefix="/v1/health", tags=["Health"])
