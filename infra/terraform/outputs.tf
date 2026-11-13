@@ -9,6 +9,6 @@ output "azure_sql_server_fqdn" {
 }
 
 output "azure_api_url" {
-  description = "HTTPS endpoint for the deployed FastAPI application"
-  value       = "https://${azurerm_linux_web_app.api_app.default_hostname}"
+  description = "HTTPS endpoint for the deployed Container App API"
+  value       = "https://${azurerm_container_app.api_app.ingress[0].fqdn}"
 }
