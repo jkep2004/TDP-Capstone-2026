@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from ..schemas.HealthResponse import HealthResponse
-from ...database.database import get_db
+from database.database import get_db
 
 router = APIRouter()
 
