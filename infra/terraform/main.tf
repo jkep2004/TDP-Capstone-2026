@@ -54,7 +54,7 @@ resource "azurerm_service_plan" "app_plan" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   os_type             = "Linux"
-  sku_name            = "B1"
+  sku_name            = "F1"
 }
 
 # 7. Linux Web App (API Host)
@@ -66,6 +66,7 @@ resource "azurerm_linux_web_app" "api_app" {
   https_only          = true
 
   site_config {
+    always_on           = false
     minimum_tls_version = "1.2"
     # Startup command for FastAPI skeleton
     app_command_line    = "uvicorn src.api.main:app --host 0.0.0.0 --port 8000"
