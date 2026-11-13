@@ -48,35 +48,57 @@ resource "azurerm_mssql_database" "sql_db" {
   zone_redundant = false
 }
 
-# 6. App Service Plan (Linux B1 Tier)
-resource "azurerm_service_plan" "app_plan" {
-  name                = "asp-${var.project_name}-${var.environment}"
-  resource_group_name = azurerm_resource_group.rg.name
+# 6. Azure Container Apps Environment (Bypasses App Service Plan 0-quota limit)
+resource "azurerm_container_app_environment" "api_env" {
+  name                = "cae-${var.project_name}-${var.environment}"
   location            = azurerm_resource_group.rg.location
-  os_type             = "Linux"
-  sku_name            = "F1"
+  resource_group_name = azurerm_resource_group.rg.name
 }
 
-# 7. Linux Web App (API Host)
-resource "azurerm_linux_web_app" "api_app" {
-  name                = "app-${var.project_name}-api-${var.environment}"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  service_plan_id     = azurerm_service_plan.app_plan.id
-  https_only          = true
+# 7. Azure Container App (API Host)
+resource "azurerm_container_app" "api_app" {
+  name                         = "ca-${var.project_name}-api-${var.environment}"
+  container_app_environment_id = azurerm_container_app_environment.api_env.id
+  resource_group_name          = azurerm_resource_group.rg.name
+  revision_mode                = "Single"
 
-  site_config {
-    always_on           = false
-    minimum_tls_version = "1.2"
-    # Startup command for FastAPI skeleton
-    app_command_line    = "uvicorn src.api.main:app --host 0.0.0.0 --port 8000"
+  ingress {
+    external_enabled = true
+    target_port      = 8000
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
   }
 
-  # Inject non-sensitive DB connection settings into the cloud API environment
-  app_settings = {
-    "DB_SERVER"   = "${azurerm_mssql_server.sql_server.fully_qualified_domain_name},1433"
-    "DB_NAME"     = azurerm_mssql_database.sql_db.name
-    "DB_USER"     = var.sql_admin_username
-    "DB_PASSWORD" = var.sql_admin_password
+  template {
+    container {
+      name   = "carbon-api"
+      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+      cpu    = 0.25
+      memory = "0.5Gi"
+
+      env {
+        name  = "DB_SERVER"
+        value = "${azurerm_mssql_server.sql_server.fully_qualified_domain_name},1433"
+      }
+      env {
+        name  = "DB_NAME"
+        value = azurerm_mssql_database.sql_db.name
+      }
+      env {
+        name  = "DB_USER"
+        value = var.sql_admin_username
+      }
+      env {
+        name        = "DB_PASSWORD"
+        secret_name = "db-password"
+      }
+    }
+  }
+
+  secret {
+    name  = "db-password"
+    value = var.sql_admin_password
   }
 }
