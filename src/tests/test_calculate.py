@@ -5,18 +5,13 @@ from fastapi.testclient import TestClient
 
 from api.main import app
 
-# =====================================================================
-# SECTION 1: SETUP (keep)
-# =====================================================================
+
 
 client = TestClient(app)
 
-# Built from this file's location, so it works whichever folder pytest runs from.
+
 CSV_PATH = pathlib.Path(__file__).parent.parent / "test-data" / "sample_customer_spending.csv"
 
-# sample_csv_dict is a list of rows. Each row looks like:
-# {"customer_id": "1", "week": "1", "travel": "120", "food": "180", "utilities": "95"}
-# Remember: every value is a string.
 with open(CSV_PATH, "r") as file:
     sample_csv_lines = file.read().splitlines()
     sample_csv_headers = sample_csv_lines[0].split(",")
@@ -26,13 +21,11 @@ with open(CSV_PATH, "r") as file:
 
 
 # =====================================================================
-# SECTION 2: NEW TESTS (work here)
 # =====================================================================
 
 @pytest.mark.skip(reason="work in progress")
 def test_happy_path():
     test_row = sample_csv_dict[1]
-    # 1. Pick ONE row from sample_csv_dict (e.g. customer 1, week 1).
     test_rows = [
      {"CustomerID": int(test_row["customer_id"]), "category": "travel",    "amount": float(test_row["travel"]), "week": int(test_row["week"])}, 
      {"CustomerID": int(test_row["customer_id"]), "category": "food",      "amount": float(test_row["food"]), "week": int(test_row["week"])},
@@ -45,13 +38,12 @@ def test_happy_path():
     # 4. Assert status code is 200.
     # 5. Assert the four keys: status, totalCarbonKg, breakdown, recommendations.
     # 6. Assert their types, and that breakdown has three entries.
+
+    # DO NOT DELETE THESE INSTRUCTIONS OR I WILL FORGET THEM LIKE A BOZO XD
     pass
 
 
 # =====================================================================
-# SECTION 3: OLD CODE (reference only, delete when finished)
-# Commented out because it no longer matches the schema:
-# no CustomerID or week, only two items, and it mixes rows 0 and 1.
 # =====================================================================
 
 # def test_calculate_endpoint():
