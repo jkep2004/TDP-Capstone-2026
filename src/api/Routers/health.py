@@ -25,7 +25,7 @@ router = APIRouter()
     }
 )
 def health():
-    return {
-        "status": "healthy",
-        "version": "1"
-    }
+    return HealthResponse(
+        status="healthy",
+        version="1"
+    )
