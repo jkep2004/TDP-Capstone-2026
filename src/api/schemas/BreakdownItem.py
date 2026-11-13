@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from ..Schemas.Category import Itemtype
+from ..schemas.Category import Itemtype
 from enum import StrEnum, Enum
 
 
