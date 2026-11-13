@@ -1,9 +1,13 @@
 /* =====================================================================
-   database/seed.sql   (T-SQL)  - run after schema.sql
-   Spending data: src/test-data/sample_customer_spending_v3_london_heathrow.csv
-   (converted from wide to long format; values unchanged).
+   infra/database/seed.sql   (T-SQL)  - run after schema.sql
+   Reference data only (categories, emission factors, assumptions,
+   customers, recommendation rules). Spending is NOT seeded here:
+   in the app the user selects the month and uploads/enters spending.
+   For testing without the app, run test_spending.sql.
    SYNTHETIC / TEST DATA ONLY - no real customer information.
    ===================================================================== */
+
+SET NOCOUNT ON;   -- avoids 'rows affected' messages that can stop Python drivers mid-batch
 
 SET IDENTITY_INSERT dbo.Categories ON;
 INSERT INTO dbo.Categories (CategoryId, Name, Description) VALUES
@@ -29,7 +33,7 @@ INSERT INTO dbo.EmissionsFactors (CategoryId, KgCO2ePerGBP, Unit, Source, Versio
 GO
 
 INSERT INTO dbo.Assumptions (Name, CategoryId, Value, Unit, Description, Source) VALUES
-(N'WeeksPerMonth',       NULL, 4.3333, N'weeks', N'Estimated monthly spend = average weekly spend x 52/12', N'Team decision (weekly data, monthly thresholds)'),
+(N'WeeksPerMonth',       NULL, 4.3333, N'weeks', N'Monthly spend = manual monthly total, else average weekly spend x 52/12', N'Team decision (weekly data, monthly thresholds)'),
 (N'TravelThreshold',     1,  300.0000, N'GBP/month', N'Monthly travel spend above this triggers recommendations',    N'Appendix A'),
 (N'FoodThreshold',       2,  250.0000, N'GBP/month', N'Monthly food spend above this triggers recommendations',      N'Appendix A'),
 (N'UtilitiesThreshold',  3,  150.0000, N'GBP/month', N'Monthly utilities spend above this triggers recommendations', N'Appendix A'),
@@ -44,45 +48,6 @@ INSERT INTO dbo.Customers (CustomerId, PersonaType, DataSource) VALUES
 (2, NULL, N'test-data v3'),
 (3, NULL, N'test-data v3'),
 (4, N'High Commuter (Heathrow)', N'test-data v3');
-GO
-
-INSERT INTO dbo.Spending (CustomerId, CategoryId, WeekNumber, AmountGBP) VALUES
-(1, 1, 1, 120.00),
-(1, 2, 1, 180.00),
-(1, 3, 1, 95.00),
-(1, 1, 2, 95.00),
-(1, 2, 2, 160.00),
-(1, 3, 2, 90.00),
-(1, 1, 3, 80.00),
-(1, 2, 3, 150.00),
-(1, 3, 3, 85.00),
-(2, 1, 1, 200.00),
-(2, 2, 1, 140.00),
-(2, 3, 1, 110.00),
-(2, 1, 2, 180.00),
-(2, 2, 2, 130.00),
-(2, 3, 2, 105.00),
-(2, 1, 3, 170.00),
-(2, 2, 3, 120.00),
-(2, 3, 3, 100.00),
-(3, 1, 1, 60.00),
-(3, 2, 1, 220.00),
-(3, 3, 1, 130.00),
-(3, 1, 2, 55.00),
-(3, 2, 2, 200.00),
-(3, 3, 2, 125.00),
-(3, 1, 3, 50.00),
-(3, 2, 3, 180.00),
-(3, 3, 3, 120.00),
-(4, 1, 1, 675.00),
-(4, 2, 1, 160.00),
-(4, 3, 1, 70.00),
-(4, 1, 2, 780.00),
-(4, 2, 2, 180.00),
-(4, 3, 2, 75.00),
-(4, 1, 3, 720.00),
-(4, 2, 3, 170.00),
-(4, 3, 3, 80.00);
 GO
 
 INSERT INTO dbo.RecommendationRules (CategoryId, MonthlyThresholdGBP, RecommendationText, ReductionPercentage) VALUES

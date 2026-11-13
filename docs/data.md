@@ -22,9 +22,9 @@ No real customer data is used. All data is synthetic or test data.
 | `EmissionsFactors` | kgCO2e per £ for each category, with **Source, Version, EffectiveDate** |
 | `Assumptions` | Documented calculation rules (thresholds, weeks per month, reduction %) |
 | `Customers` | Test customers (IDs 1-4) |
-| `Spending` | One row per customer, category and week (long format) |
+| `Spending` | One row per customer, category, month and week. `SpendMonth` = month the user selects; `WeekNumber` = week 1-5 for CSV uploads, empty (NULL) for a manual whole-month total |
 | `RecommendationRules` | Monthly threshold, recommendation text and reduction % per category |
-| `vw_EstimatedMonthlySpend` (view) | Converts weekly data into an estimated monthly figure |
+| `vw_EstimatedMonthlySpend` (view) | Monthly spend per customer, category and month: the manual total if entered, otherwise weekly average x 4.33 |
 
 ## 3. How the data is used (SCRUM-13)
 
@@ -60,26 +60,32 @@ Limitations: spend-based multipliers are national averages, so results are estim
 
 `ProjectedSavings = SpendAmount x ReductionPercentage`. The brief gives the formula but not the percentage, so each category's % is the average of its two Appendix B examples: Travel 14%, Food 14%, Utilities 19%. Stored in `Assumptions` and `RecommendationRules`, so they can be changed.
 
-### Weekly vs monthly (team decision)
+### Weekly vs monthly (team decision, 13 Nov)
 
-- The test data is **weekly**, but the thresholds and the brief ("submit monthly spending") are **monthly**.
-- Decision: **store weekly, consolidate to monthly** for recommendations and the dashboard.
-- We only have 3 weeks per customer, so:
+- The test data is **weekly** (week 1-3, no dates), but the thresholds and the brief ("submit monthly spending") are **monthly**.
+- In the app the user first **selects a month** (defaults to the current month, can be changed), then either:
+  - **enters a monthly total manually** -> one row per category, `WeekNumber` empty (NULL), or
+  - **uploads a CSV of weekly spending** -> one row per week and category, `WeekNumber` 1-5.
+- Both are saved against the selected month (`SpendMonth`, stored as the 1st of the month), so no start date has to be assumed.
+- The view works out the monthly figure:
 
 ```
-EstimatedMonthlySpend = average weekly spend x 4.33   (52 weeks / 12 months)
+MonthlySpend = manual monthly total, if the user entered one
+             = average weekly spend x 4.33 otherwise   (52 weeks / 12 months)
 ```
 
+- Adding up 3 weeks would undercount a month (e.g. £295 instead of about £426), so the weekly average x 4.33 is used instead.
 - 4.33 is stored in the `Assumptions` table as `WeeksPerMonth`, so the rule is documented and can be changed.
+- The month is required: spending without a month cannot be compared to the monthly thresholds or shown on the progress page.
 
 ## 4. Data quality (SCRUM-14)
 
 | Dimension | Check | How it is enforced |
 |---|---|---|
-| **Completeness** | No missing amounts; every customer has every week | `NOT NULL` constraints; check query in `queries.sql` |
-| **Uniqueness** | No duplicate customer + category + week | `UNIQUE` constraint on `Spending` |
-| **Validity** | Amounts are not negative; week is 1-53; every category has an emission factor | `CHECK` constraints; foreign keys; check queries |
-| **Consistency** | Units match (weekly data vs monthly thresholds) | Weekly-to-monthly conversion documented in `Assumptions` |
+| **Completeness** | No missing amounts or months; flags months with fewer than 3 weeks | `NOT NULL` constraints; check query in `queries.sql` |
+| **Uniqueness** | No duplicate customer + category + month + week (only one manual total per month) | `UNIQUE` constraint on `Spending` |
+| **Validity** | Amounts are not negative; week is 1-5; month is the 1st of a month; every category has an emission factor | `CHECK` constraints; foreign keys; check queries |
+| **Consistency** | Units match (weekly data vs monthly thresholds); a month should not have both a manual total and weekly rows | Conversion documented in `Assumptions`; check query in `queries.sql` |
 
 ### Issues found in the test data
 
@@ -88,6 +94,7 @@ EstimatedMonthlySpend = average weekly spend x 4.33   (52 weeks / 12 months)
 3. **Unit mismatch** - spending is weekly, thresholds are monthly (handled above).
 4. **Outlier** - customer 4 travel is £675-780 per week, far above other customers. Kept, not deleted: it is the intended high-travel test case (Heathrow). Flagged by the outlier query in `queries.sql`.
 5. **Small sample** - only 3 weeks per customer, so monthly figures are estimates.
+6. **No dates** - the CSV only has week numbers. In the app the user selects the month; for testing, `test_spending.sql` lets you choose the month.
 
 ### Security
 
@@ -97,7 +104,9 @@ EstimatedMonthlySpend = average weekly spend x 4.33   (52 weeks / 12 months)
 
 ## 5. How to run
 
-1. Start SQL Server (see SCRUM-9).
-2. `CREATE DATABASE CarbonAdvisor;`
-3. Run `database/schema.sql`, then `database/seed.sql`.
-4. Run `database/queries.sql` to check the data and data quality.
+Connection details go in your local `.env` (never commit it). Then run, in order, from `infra/database/`:
+
+1. `schema.sql` - creates the tables and the view (drops existing tables first, so tell the team before running).
+2. `seed.sql` - reference data (categories, emission factors, assumptions, customers, rules). No spending.
+3. `test_spending.sql` - optional, for testing: loads the test CSV for the month set in `@SpendMonth` (36 rows).
+4. `queries.sql` - checks the data and data quality.
