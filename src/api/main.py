@@ -1,7 +1,14 @@
 # NW TDP 2026 v2
 from fastapi import FastAPI, HTTPException, APIRouter
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from pydantic import BaseModel, Field
 from .Routers import calculate, health
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+STATIC_DIR = BASE_DIR / "static"
 
 tags_metadata = [
     {
@@ -34,8 +41,16 @@ app = FastAPI(
     },
     openapi_tags=tags_metadata,
 )
+app.mount(
+    "/static",
+    StaticFiles(directory=STATIC_DIR),
+    name="static"
+)
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse(STATIC_DIR / "img" / "favicon.ico")
+
 router = APIRouter()
-
-
 app.include_router(health.router, prefix="/v1/health", tags=["Health"])
 app.include_router(calculate.router, prefix="/v1/calculate", tags=["Calculate"])
