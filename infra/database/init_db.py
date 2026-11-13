@@ -1,4 +1,5 @@
 import os
+import sys
 from dotenv import load_dotenv
 import pyodbc
 from pathlib import Path
@@ -102,6 +103,10 @@ def execute_sql_file(file_name):
         raise e
 
 if __name__ == "__main__":
+    # Optional flag: python init_db.py --with-test-data
+    # also loads the sample spending from test_spending.sql (testing only)
+    with_test_data = "--with-test-data" in sys.argv
+
     print("=== Starting Secure Database Infrastructure Initialization & Seeding ===")
     
     # 1. Check and create database if not exists
@@ -110,7 +115,13 @@ if __name__ == "__main__":
     # 2. Initialize table structures and views (schema.sql)
     execute_sql_file("schema.sql")
     
-    # 3. Insert sample/seed data (seed.sql)
+    # 3. Insert reference/seed data (seed.sql) - no spending data
     execute_sql_file("seed.sql")
+
+    # 4. Optional: load sample spending for testing (test_spending.sql)
+    if with_test_data:
+        execute_sql_file("test_spending.sql")
+    else:
+        print("Skipping test spending data (add --with-test-data to load it).")
     
     print("=== Secure Database Initialization & Seeding Completed Successfully ===")
