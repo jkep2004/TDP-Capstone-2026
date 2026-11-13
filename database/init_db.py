@@ -3,29 +3,37 @@ from dotenv import load_dotenv
 import pyodbc
 from pathlib import Path
 
+# Load environment variables from .env file
 load_dotenv()
 
-# Database connection configuration (reads from environment variables or uses safe defaults)
+# Database connection configuration
 SERVER = os.getenv("DB_SERVER", "localhost,1433")
 DATABASE = os.getenv("DB_NAME", "CarbonFootprintDB")
-USERNAME = os.getenv("DB_USER", "sa")
-PASSWORD = os.getenv("DB_PASSWORD", "YourStrong@Password123")
+
+# Strict administrative credential check (Fail-Fast principle)
+ADMIN_USER = os.getenv("DB_ADMIN_USER", "sa")
+ADMIN_PASSWORD = os.getenv("DB_ADMIN_PASSWORD") or os.getenv("SA_PASSWORD")
+
+if not ADMIN_PASSWORD:
+    raise ValueError(
+        "CRITICAL SECURITY ERROR: 'DB_ADMIN_PASSWORD' (or 'SA_PASSWORD') is not set in the environment variables or .env file! "
+        "Application startup aborted to prevent insecure execution."
+    )
+
 DRIVER = "{ODBC Driver 18 for SQL Server}"
 
 def create_database_if_not_exists():
     """
-    Connect to the 'master' database to check if the target database exists.
-    If it does not exist, automatically create it.
+    Connect to the 'master' database using administrator privileges 
+    to check if the target business database exists. If not, create it automatically.
     """
-    conn_str = f"DRIVER={DRIVER};SERVER={SERVER};DATABASE=master;UID={USERNAME};PWD={PASSWORD};TrustServerCertificate=yes;"
+    conn_str = f"DRIVER={DRIVER};SERVER={SERVER};DATABASE=master;UID={ADMIN_USER};PWD={ADMIN_PASSWORD};TrustServerCertificate=yes;"
     
     try:
-        # Establish connection with autocommit enabled for DDL statements
         conn = pyodbc.connect(conn_str)
         conn.autocommit = True
         cursor = conn.cursor()
         
-        # Check if the target database already exists in the system catalog
         cursor.execute(f"SELECT database_id FROM sys.databases WHERE Name = '{DATABASE}'")
         exists = cursor.fetchone()
         
@@ -42,21 +50,20 @@ def create_database_if_not_exists():
         print(f"Error while checking or creating database: {e}")
         raise e
 
-def init_schema():
+def execute_sql_file(file_name):
     """
-    Read the 'schema.sql' file, split T-SQL batches by 'GO', 
+    Read a SQL file, split T-SQL batches by 'GO', 
     and execute them sequentially against the target database.
     """
-    # Locate schema.sql in the same directory as this script
     base_dir = Path(__file__).resolve().parent
-    schema_path = base_dir / "schema.sql"
+    file_path = base_dir / file_name
     
-    if not schema_path.exists():
-        print(f"Error: schema.sql not found at path: {schema_path}")
+    if not file_path.exists():
+        print(f"Error: {file_name} not found at path: {file_path}")
         return
 
-    # Read the contents of the DDL script
-    with open(schema_path, "r", encoding="utf-8") as f:
+    print(f"Processing script: {file_name} ...")
+    with open(file_path, "r", encoding="utf-8") as f:
         sql_content = f.read()
 
     # Split T-SQL script by 'GO' statements since pyodbc cannot parse 'GO' directly
@@ -72,32 +79,38 @@ def init_schema():
     if current_batch:
         batches.append("\n".join(current_batch))
 
-    # Connect to the target CarbonFootprintDB database
-    conn_str = f"DRIVER={DRIVER};SERVER={SERVER};DATABASE={DATABASE};UID={USERNAME};PWD={PASSWORD};TrustServerCertificate=yes;"
+    conn_str = f"DRIVER={DRIVER};SERVER={SERVER};DATABASE={DATABASE};UID={ADMIN_USER};PWD={ADMIN_PASSWORD};TrustServerCertificate=yes;"
     
     try:
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
 
-        print("Starting database schema initialization...")
         for i, batch in enumerate(batches):
             if batch.strip():
                 try:
                     cursor.execute(batch)
                     conn.commit()
                 except Exception as e:
-                    print(f"Error executing SQL batch #{i+1}: {e}")
+                    print(f"Error executing batch #{i+1} in {file_name}: {e}")
                     raise e
 
-        print("All database tables and views initialized successfully!")
+        print(f"Successfully executed: {file_name}")
         cursor.close()
         conn.close()
     except Exception as e:
-        print(f"Database initialization failed: {e}")
+        print(f"Failed to execute {file_name}: {e}")
         raise e
 
 if __name__ == "__main__":
-    print("=== Starting Database Infrastructure Initialization ===")
+    print("=== Starting Secure Database Infrastructure Initialization & Seeding ===")
+    
+    # 1. Check and create database if not exists
     create_database_if_not_exists()
-    init_schema()
-    print("=== Database Initialization Completed Successfully ===")
+    
+    # 2. Initialize table structures and views (schema.sql)
+    execute_sql_file("schema.sql")
+    
+    # 3. Insert sample/seed data (seed.sql)
+    execute_sql_file("seed.sql")
+    
+    print("=== Secure Database Initialization & Seeding Completed Successfully ===")
