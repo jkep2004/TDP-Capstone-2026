@@ -7,6 +7,17 @@ from sqlalchemy.orm import sessionmaker
 
 load_dotenv()
 
+# SQLAlchemy rejects None in the query dict, so only include the driver when
+# DB_DRIVER is set. Without it the app can still start (e.g. in CI) and the
+# failure shows up when a connection is actually attempted.
+query = {
+    "Encrypt": "yes",
+    "TrustServerCertificate": "no",
+}
+driver = os.getenv("DB_DRIVER")
+if driver:
+    query["driver"] = driver
+
 connection_url = URL.create(
     "mssql+pyodbc",
     username=os.getenv("DB_ADMIN_USER"),
@@ -14,11 +25,7 @@ connection_url = URL.create(
     host=os.getenv("DB_SERVER"),
     port=1433,
     database=os.getenv("DB_NAME"),
-    query={
-        "driver": os.getenv("DB_DRIVER"),
-        "Encrypt": "yes",
-        "TrustServerCertificate": "no",
-    },
+    query=query,
 )
 
 engine = create_engine(
