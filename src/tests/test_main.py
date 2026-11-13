@@ -9,7 +9,6 @@ with open("./src/test-data/sample_customer_spending.csv", "r") as file: # Read s
     sample_csv_dict = [
         dict(zip(sample_csv_headers, line.split(","))) for line in sample_csv_lines[1:]
     ]
-    # print("Sample CSV Data:", sample_csv_dict)  # Debugging: print the parsed CSV data
 
 def test_health_endpoint():
     response = client.get("/v1/health")
