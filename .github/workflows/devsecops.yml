@@ -32,3 +32,14 @@ jobs:
     - name: Run automated tests with pytest
       run: |
         pytest
+
+   
+    # Step 5: Install Bandit security scanner
+    - name: Install Bandit
+      run: |
+        python -m pip install bandit
+
+    # Step 6: Run SAST security scan
+    - name: Run Bandit SAST
+      run: |
+        bandit -r src -x src/tests
