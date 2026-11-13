@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from ..schemas.CalculateRequest import CalculateRequest
+from ..Schemas.calculateRequest import CalculateRequest
 
 router = APIRouter()
 
@@ -30,6 +30,7 @@ router = APIRouter()
         },
     },
 )
+
 def calculate(request: CalculateRequest):
     # Placeholder only: replace with database-backed emissions factors in Sprint 2.
     breakdown = [
