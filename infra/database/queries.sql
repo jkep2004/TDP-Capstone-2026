@@ -7,7 +7,7 @@ SELECT * FROM dbo.Categories;
 SELECT c.Name, ef.KgCO2ePerGBP, ef.Source, ef.Version, ef.EffectiveDate
 FROM dbo.EmissionsFactors ef JOIN dbo.Categories c ON c.CategoryId = ef.CategoryId;
 SELECT * FROM dbo.Assumptions;
-SELECT COUNT(*) AS SpendingRows FROM dbo.Spending;   -- 0 until spending is uploaded; 36 per month after test_spending.sql
+SELECT COUNT(*) AS SpendingRows FROM dbo.Spending;   -- 0 until spending is uploaded; 27 per month after test_spending.sql (v1)
 
 -- 2. Weekly carbon impact
 SELECT s.CustomerId, s.SpendMonth, s.WeekNumber, c.Name AS Category, s.AmountGBP,
