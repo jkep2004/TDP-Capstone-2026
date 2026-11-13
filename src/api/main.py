@@ -52,7 +52,6 @@ app.mount(
 async def favicon():
     return FileResponse(STATIC_DIR / "img" / "favicon.ico")
 
-
 router = APIRouter()
 app.include_router(health.router, prefix="/v1/health", tags=["Health"])
 app.include_router(calculate.router, prefix="/v1/calculate", tags=["Calculate"])
