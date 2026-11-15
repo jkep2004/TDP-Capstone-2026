@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { parseSpendingCsv } from './utils/parseSpendingCsv'
+import type { SpendingRow } from './utils/parseSpendingCsv'
 
 type CsvUploadProps = {
   month: string
@@ -6,16 +8,16 @@ type CsvUploadProps = {
 
 function CsvUpload({ month }: CsvUploadProps) {
   const [file, setFile] = useState<File | null>(null)
-  const [csvText, setCsvText] = useState('') // remember any file contents
-  const [isReading, setIsReading] = useState(false) // if reading is in progress, disable the file input
-  const [error, setError] = useState('') // remember any error message
+  const [rows, setRows] = useState<SpendingRow[]>([])
+  const [isReading, setIsReading] = useState(false)
+  const [error, setError] = useState('')
 
   const selectedMonth = month
     ? new Intl.DateTimeFormat('en-GB', {
-      month: 'long',
-      year: 'numeric',
-      timeZone: 'UTC',
-    }).format(new Date(`${month}-01T00:00:00Z`))
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC',
+      }).format(new Date(`${month}-01T00:00:00Z`))
     : 'No month selected'
 
   const readFile = async () => {
@@ -24,18 +26,51 @@ function CsvUpload({ month }: CsvUploadProps) {
     }
 
     setError('')
-    setCsvText('')
-
+    setRows([])
     setIsReading(true)
+
     try {
       const text = await file.text()
-      setCsvText(text)
-    } catch {
-      setError('We couldn\'t read this file. Please select it again.')
+      const parsedRows = parseSpendingCsv(text)
+
+      // Temporary demo selection, not authentication or access control.
+      const customerRows = parsedRows.filter(
+        (row) => row.customer_id === 1
+      )
+
+      if (customerRows.length === 0) {
+        throw new Error(
+          'This file contains no records for demo customer 1.'
+        )
+      }
+
+      setRows(customerRows)
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'We couldn’t read this file. Please select it again.'
+      )
     } finally {
       setIsReading(false)
     }
   }
+
+  // Add amounts in pence to calculate the preview totals.
+  const totals = rows.reduce(
+    (sum, row) => ({
+      travel: sum.travel + Math.round(row.travel * 100),
+      food: sum.food + Math.round(row.food * 100),
+      utilities: sum.utilities + Math.round(row.utilities * 100),
+    }),
+    { travel: 0, food: 0, utilities: 0 }
+  )
+
+  const formatPence = (pence: number) =>
+    new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: 'GBP',
+    }).format(pence / 100)
 
   return (
     <div>
@@ -45,17 +80,19 @@ function CsvUpload({ month }: CsvUploadProps) {
 
       <div className="field">
         <label htmlFor="spending-csv">Choose a CSV file</label>
+
         <input
           id="spending-csv"
           type="file"
           accept=".csv"
+          disabled={isReading}
           onChange={(event) => {
             const selectedFile = event.target.files?.[0] ?? null
+
             setFile(selectedFile)
-            setCsvText('')
+            setRows([])
             setError('')
           }}
-          disabled={isReading}
         />
       </div>
 
@@ -74,15 +111,77 @@ function CsvUpload({ month }: CsvUploadProps) {
         onClick={readFile}
         disabled={!file || isReading}
       >
-        {isReading ? 'Reading file...' : 'Read file'}
+        {isReading ? 'Reading file…' : 'Preview spending'}
       </button>
 
       {error && <p role="alert">{error}</p>}
 
-      {csvText && (
+      {rows.length > 0 && (
         <section aria-labelledby="csv-preview-heading">
-          <h3 id="csv-preview-heading">CSV file contents</h3>
-          <pre className="csv-preview">{csvText}</pre>
+          <h3 id="csv-preview-heading">Spending preview</h3>
+
+          <p className="help-text">
+            Demo customer 1 only · {rows.length} weeks included.
+            Other customers are excluded from this preview.
+          </p>
+
+          <div className="csv-preview">
+            <table className="spending-table">
+              <caption>
+                Recorded weekly spending for demo customer 1
+              </caption>
+
+              <thead>
+                <tr>
+                  <th scope="col">Week</th>
+                  <th scope="col">Travel</th>
+                  <th scope="col">Food</th>
+                  <th scope="col">Utilities</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={`${row.customer_id}-${row.week}`}>
+                    <th scope="row">{row.week}</th>
+                    <td>
+                      {formatPence(Math.round(row.travel * 100))}
+                    </td>
+                    <td>
+                      {formatPence(Math.round(row.food * 100))}
+                    </td>
+                    <td>
+                      {formatPence(Math.round(row.utilities * 100))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+
+              <tfoot>
+                <tr>
+                  <th scope="row">Total</th>
+                  <td>{formatPence(totals.travel)}</td>
+                  <td>{formatPence(totals.food)}</td>
+                  <td>{formatPence(totals.utilities)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div className="total">
+            <span>Total recorded spending</span>
+            <strong>
+              {formatPence(
+                totals.travel + totals.food + totals.utilities
+              )}
+            </strong>
+          </div>
+
+          <p className="help-text">
+            These totals cover only the weeks provided. The file has
+            no dates, so it cannot confirm coverage of the selected
+            month. Nothing has been uploaded or saved.
+          </p>
         </section>
       )}
     </div>

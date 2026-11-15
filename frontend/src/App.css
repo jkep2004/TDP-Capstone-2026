@@ -158,3 +158,30 @@ button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.spending-table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+.spending-table caption {
+  text-align: left;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.spending-table th,
+.spending-table td {
+  padding: 12px;
+  text-align: right;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.spending-table th:first-child {
+  text-align: left;
+}
+
+.spending-table tfoot {
+  font-weight: 700;
+}
