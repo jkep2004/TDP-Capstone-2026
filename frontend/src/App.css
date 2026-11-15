@@ -144,3 +144,17 @@ button:hover {
     gap: 0;
   }
 }
+
+.csv-preview {
+  overflow-x: auto;
+  max-height: 320px;
+  padding: 16px;
+  background: #edf3fa;
+  border-radius: 8px;
+  line-height: 1.6;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
