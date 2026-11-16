@@ -20,8 +20,8 @@ router = APIRouter()
                         "status": "success",
                         "totalCarbonKg": 0,
                         "breakdown": [
-                            {"category": "food", "amount": 100, "carbonKg": 0},
-                            {"category": "travel", "amount": 200, "carbonKg": 0}
+                            {"category": "food",   "subcategory": "eating out", "amount": 100, "week": 1,   "carbonKg": 0},
+                            {"category": "travel", "subcategory": "eating out", "amount": 200, "week": 1, "carbonKg": 0}
                         ],
                         "recommendations": []
                     },
@@ -34,7 +34,7 @@ router = APIRouter()
 def calculate(request: CalculateRequest):
     # TODO: replace with database-backed emissions factors in Sprint 2.
     breakdown = [
-        {"category": item.category, "amount": item.amount, "carbonKg": 0}
+        {"category": item.category, "subcategory": item.subcategory, "amount": item.amount, "week": item.week,"carbonKg": 0}
         for item in request.spending
     ]
     total_carbon_kg = sum(item["carbonKg"] for item in breakdown)

@@ -1,14 +1,15 @@
 from pydantic import BaseModel, Field
 from ..schemas.Category import Itemtype
-from enum import StrEnum, Enum
 
-# TODO
 
-# class SpendingItem(BaseModel):
-#     CustomerID: int = field(examples=[1])
-#     Category: Itemtype
-#     Week: int = field(examples=[2], description="The week number of the month")
-#     ItemType: str = field(default = none , description="The type of the spending category")
+
+class BreakdownItem(BaseModel):
+    category: Itemtype
+    subcategory: str | None = Field(default=None, description="The subcategory of the spending category")
+    week: int = Field(gt=0, le = 5, description="The week number of the month")
+    amount: float = Field(ge=0)
+    carbonKg: float = Field(ge=0, description = "the amount of cabrbonkg such as kg CO2e")
+
 
 
 

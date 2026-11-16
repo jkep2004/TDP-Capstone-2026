@@ -5,8 +5,10 @@ from pydantic import field_validator
 class SpendingItem(BaseModel, extra="forbid"):
     CustomerID: int = Field(gt=0)
     category: Itemtype
+    subcategory: str | None = Field(default=None, description="The subcategory of the spending category")
     amount: float = Field(ge=0)
-    week: int = Field(gt=0)
+    week: int = Field(gt=0, le = 5, description="The week number of the month")
+
     
     
     @field_validator("category", mode="before")
@@ -16,3 +18,17 @@ class SpendingItem(BaseModel, extra="forbid"):
             RawInput = RawInput.lower()
             return RawInput
         raise ValueError("Category must be a text string")
+
+
+    @field_validator("subcategory", mode="before")
+    @classmethod
+    def validate_subcategory(cls, RawInput: str):
+        if RawInput is None:
+            return None
+        if isinstance(RawInput, str):
+            raw_input = RawInput.strip()
+            raw_input = raw_input.lower()
+            if raw_input == "":
+                return None
+            return raw_input
+        raise ValueError("Subcategory must be a text string")

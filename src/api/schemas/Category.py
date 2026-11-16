@@ -1,15 +1,18 @@
-from enum import IntFlag, StrEnum, Enum
+from enum import StrEnum, Enum
 
-from fastapi import APIRouter
-
-from pydantic import BaseModel, field_validator
-
-route = APIRouter()
 
 class Itemtype(Enum):
-    Travel = 'travel'
-    Food = 'food'
+    Travel    = 'travel'
+    Food      = 'food'
     Utilities = 'utilities'
+    Shopping  = 'shopping'
+    Housing   = 'housing'
+    Other     = 'other'
+
+   # TODO: implementation for subcategories are being done via relational database parent and foreign key relationships. 
+   # This is a placeholder for future implementation if it is neccessary to have a subcategory enum.
+
+
 
 # TODO: Implement a route to get all categories
 # @route.get("/category")

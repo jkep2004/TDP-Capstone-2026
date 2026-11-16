@@ -43,6 +43,29 @@ def test_happy_path():
     assert isinstance(respond["recommendations"], list)
     assert len(respond["breakdown"]) == 3
 
+def test_subcategory_validation():
+    test_row = sample_csv_dict[1]
+    test_rows = [
+     {"CustomerID": int(test_row["customer_id"]), "category": "travel",    "subcategory": "Fuel",   "amount": float(test_row["travel"]), "week": int(test_row["week"])}, 
+     {"CustomerID": int(test_row["customer_id"]), "category": "food",      "subcategory": None,     "amount": float(test_row["food"]), "week": int(test_row["week"])},
+     {"CustomerID": int(test_row["customer_id"]), "category": "utilities", "subcategory": "",       "amount": float(test_row["utilities"]), "week": int(test_row["week"])},
+     {"CustomerID": int(test_row["customer_id"]), "category": "travel",    "subcategory": " fuel ", "amount": float(test_row["travel"]), "week": int(test_row["week"])},
+     {"CustomerID": int(test_row["customer_id"]), "category": "travel",    "subcategory": " Fuel ", "amount": float(test_row["travel"]), "week": int(test_row["week"])}
+    ]
+  
+    test_payload = {"spending": test_rows}
+    response = client.post("/v1/calculate", json=test_payload)
+    respond = response.json()
+
+    assert response.status_code == 200
+
+
+    assert set(respond.keys()) == {"status", "totalCarbonKg", "breakdown", "recommendations"}
+    assert isinstance(respond["status"], str)
+    assert isinstance(respond["totalCarbonKg"], (int, float))
+    assert isinstance(respond["breakdown"], list)
+    assert isinstance(respond["recommendations"], list)
+    assert len(respond["breakdown"]) == 5
 
 
 testers = [
@@ -69,6 +92,7 @@ def test_json_response():
     response_data = response.json()
     print(response_data)
     assert response.status_code == 422
+
 
 
 
