@@ -3,21 +3,24 @@ FROM python:3.14-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    curl \
-    ca-certificates \
-    gnupg \
-    unixodbc-dev \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        ca-certificates \
+        gnupg \
+        unixodbc-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN . /etc/os-release && \
-    curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
-    | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/${VERSION_ID}/prod ${VERSION_CODENAME} main" \
-    > /etc/apt/sources.list.d/mssql-release.list
+    curl -fsSL \
+        "https://packages.microsoft.com/config/debian/${VERSION_ID%%.*}/packages-microsoft-prod.deb" \
+        -o packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb && \
+    rm packages-microsoft-prod.deb
 
 RUN apt-get update && \
-    ACCEPT_EULA=Y apt-get install -y msodbcsql18 && \
+    ACCEPT_EULA=Y apt-get install -y --no-install-recommends \
+        msodbcsql18 && \
     rm -rf /var/lib/apt/lists/*
 
 COPY src/requirements-dev.txt ./requirements.txt
