@@ -23,7 +23,7 @@ with open(CSV_PATH, "r") as file:
 # =====================================================================
 # =====================================================================
 
-@pytest.mark.skip(reason="work in progress")
+
 def test_happy_path():
     test_row = sample_csv_dict[1]
     test_rows = [
@@ -35,12 +35,21 @@ def test_happy_path():
     #    Each item needs: CustomerID, category, amount, week.
     #    Convert the CSV strings to the right types first.
     # 3. Wrap the items as {"spending": [...]} and POST to /v1/calculate.
+    test_payload = {"spending": test_rows}
+    response = client.post("/v1/calculate", json=test_payload)
+    respond = response.json()
     # 4. Assert status code is 200.
+    assert response.status_code == 200
     # 5. Assert the four keys: status, totalCarbonKg, breakdown, recommendations.
+    assert set(respond.keys()) == {"status", "totalCarbonKg", "breakdown", "recommendations"}
     # 6. Assert their types, and that breakdown has three entries.
-
+    assert isinstance(respond["status"], str)
+    assert isinstance(respond["totalCarbonKg"], (int, float))
+    assert isinstance(respond["breakdown"], list)
+    assert isinstance(respond["recommendations"], list)
+    assert len(respond["breakdown"]) == 3
     # DO NOT DELETE THESE INSTRUCTIONS OR I WILL FORGET THEM LIKE A BOZO XD
-    pass
+
 
 
 # =====================================================================
