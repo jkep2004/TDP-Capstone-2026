@@ -51,7 +51,7 @@ jobs:
         DB_ADMIN_PASSWORD: ${{ secrets.DB_ADMIN_PASSWORD }}
         DB_DRIVER: ODBC Driver 18 for SQL Server
       run: |
-        pytest
+        pytest --continue-on-collection-errors
 
    
     # Step 5: Install Bandit security scanner
