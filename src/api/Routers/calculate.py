@@ -32,7 +32,7 @@ router = APIRouter()
 )
 
 def calculate(request: CalculateRequest):
-    # Placeholder only: replace with database-backed emissions factors in Sprint 2.
+    # TODO: replace with database-backed emissions factors in Sprint 2.
     breakdown = [
         {"category": item.category, "amount": item.amount, "carbonKg": 0}
         for item in request.spending

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from ..schemas.HealthResponse import HealthResponse
+from ..schemas.ErrorResponse import ErrorResponse
 from database.database import get_db
 
 router = APIRouter()
@@ -29,6 +30,7 @@ router = APIRouter()
     }
 )
 def health():
+    # TODO: Collate other health endpoints (e.g., database, external services)
     return HealthResponse(
         status="healthy",
         version="1"
@@ -51,32 +53,32 @@ def health():
                         "version": "1"
                     },
                 }
-            }
+            },
         },
-        500: {
+        503: { # TODO: Add ErrorResponse model to OpenAPI spec
             "description": "Database connection failed",
+            "model": ErrorResponse,
             "content": {
                 "application/json": {
                     "example": {
-                        "status": "unhealthy",
-                        "version": "1"
+                        "status_code": "503",
+                        "detail": "Database connection failed"
                     },
                 }
-            }
+            },
         },
     }
 )
 def database_health(db: Session = Depends(get_db)):
     try:
-        # Execute a lightweight SQL query to verify connectivity
-        db.execute(text("SELECT 1"))
+        db.execute(text("SELECT 1")) # Execute SQL query to verify connectivity
 
         return HealthResponse(
             status="healthy",
             version="1"
         )
 
-    except Exception:
+    except Exception as e: # TODO: Add ErrorResponse model to OpenAPI spec
         raise HTTPException(
             status_code=503,
             detail="Database connection failed"

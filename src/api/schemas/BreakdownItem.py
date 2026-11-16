@@ -2,12 +2,13 @@ from pydantic import BaseModel, Field
 from ..schemas.Category import Itemtype
 from enum import StrEnum, Enum
 
+# TODO
 
-class SpendingItem(BaseModel):
-    CustomerID: int = field(examples=[1])
-    Category: Itemtype
-    Week: int = field(examples=[2], description="The week number of the month")
-    ItemType: str = field(default = none , description="The type of the spending category")
+# class SpendingItem(BaseModel):
+#     CustomerID: int = field(examples=[1])
+#     Category: Itemtype
+#     Week: int = field(examples=[2], description="The week number of the month")
+#     ItemType: str = field(default = none , description="The type of the spending category")
 
 
 

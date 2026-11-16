@@ -3,7 +3,6 @@ from api.main import app
 
 client = TestClient(app)
 
-@pytest.mark.skip(reason="waiting for real database connection")
 def test_health_endpoint():
     response = client.get("/v1/health")
     assert response.status_code == 200

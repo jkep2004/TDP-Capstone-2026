@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 
+# TODO: Refactor to use this in API responses for errors
 
-class SpendingItem(BaseModel):
-    CustomerID: int = Field(gt=0)
-    category: str = Field(min_length=1)
-    amount: float = Field(ge=0)
+class ErrorResponse(BaseModel):
+    status_code: int = Field(..., description="HTTP status code of the error")
+    detail: str = Field(..., description="Detailed error message")

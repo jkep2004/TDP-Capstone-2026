@@ -5,10 +5,7 @@ from fastapi.testclient import TestClient
 
 from api.main import app
 
-
-
 client = TestClient(app)
-
 
 CSV_PATH = pathlib.Path(__file__).parent.parent / "test-data" / "sample_customer_spending.csv"
 
@@ -18,7 +15,6 @@ with open(CSV_PATH, "r") as file:
     sample_csv_dict = [
         dict(zip(sample_csv_headers, line.split(","))) for line in sample_csv_lines[1:]
     ]
-
 
 # =====================================================================
 # =====================================================================
