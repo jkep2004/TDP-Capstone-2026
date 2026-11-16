@@ -11,7 +11,7 @@ class Itemtype(Enum):
     Food = 'food'
     Utilities = 'utilities'
 
-
+# TODO: Implement a route to get all categories
 # @route.get("/category")
 # def get_categories(category: Itemtype):
 #      return [c for c in Itemtype if c.value.lower() == category.value.lower()]

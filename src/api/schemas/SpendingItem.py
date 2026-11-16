@@ -2,7 +2,6 @@ from pydantic import BaseModel, Field
 from ..schemas.Category import Itemtype
 from pydantic import field_validator
 
-
 class SpendingItem(BaseModel, extra="forbid"):
     CustomerID: int = Field(gt=0)
     category: Itemtype
@@ -17,6 +16,3 @@ class SpendingItem(BaseModel, extra="forbid"):
             RawInput = RawInput.lower()
             return RawInput
         raise ValueError("Category must be a text string")
-
-    
-    
