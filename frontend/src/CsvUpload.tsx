@@ -7,11 +7,13 @@ type CsvUploadProps = {
 }
 
 function CsvUpload({ month }: CsvUploadProps) {
+  // Track the selected file, its preview rows, and the current read status.
   const [file, setFile] = useState<File | null>(null)
   const [rows, setRows] = useState<SpendingRow[]>([])
   const [isReading, setIsReading] = useState(false)
   const [error, setError] = useState('')
 
+  // Turn the YYYY-MM value from the month input into a readable label.
   const selectedMonth = month
     ? new Intl.DateTimeFormat('en-GB', {
         month: 'long',
@@ -25,12 +27,14 @@ function CsvUpload({ month }: CsvUploadProps) {
       return
     }
 
+    // Clear the previous preview before attempting to read the new file.
     setError('')
     setRows([])
     setIsReading(true)
 
     try {
       const text = await file.text()
+      // Parse and validate the CSV, then keep only the demo customer's rows.
       const parsedRows = parseSpendingCsv(text)
 
       // Temporary demo selection, not authentication or access control.
@@ -56,7 +60,7 @@ function CsvUpload({ month }: CsvUploadProps) {
     }
   }
 
-  // Add amounts in pence to calculate the preview totals.
+  // Add amounts in pence to avoid rounding errors in the preview totals.
   const totals = rows.reduce(
     (sum, row) => ({
       travel: sum.travel + Math.round(row.travel * 100),
@@ -87,6 +91,7 @@ function CsvUpload({ month }: CsvUploadProps) {
           accept=".csv"
           disabled={isReading}
           onChange={(event) => {
+            // A new file needs a fresh preview and error state.
             const selectedFile = event.target.files?.[0] ?? null
 
             setFile(selectedFile)

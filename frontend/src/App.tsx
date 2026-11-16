@@ -4,6 +4,7 @@ import CsvUpload from './CsvUpload'
 import SpendingForm from './SpendingForm'
 
 function App() {
+  // Keep the selected month and entry method available to the whole page.
   const [month, setMonth] = useState('')
   const [mode, setMode] = useState<'manual' | 'csv'>('manual')
 
@@ -59,6 +60,7 @@ function App() {
           />
         </div>
 
+        {/* Show the chosen entry form and pass it the selected month. */}
         <div hidden={mode !== 'manual'}>
           <SpendingForm month={month} />
         </div>

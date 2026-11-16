@@ -11,17 +11,19 @@ const categories = [
 ] as const
 
 function SpendingForm({ month }: SpendingFormProps) {
+  // Store each input as text so the form can show exactly what was typed.
   const [amounts, setAmounts] = useState({
     food: '',
     travel: '',
     utilities: '',
   })
+  // Keep the demo confirmation tied to its month, so changing months hides it.
   const [confirmation, setConfirmation] = useState<{
     month: string
     message: string
   } | null>(null)
 
-  // Add amounts in pence, then convert back to pounds.
+  // Add in pence to avoid small rounding errors when summing money amounts.
   const totalPence = Object.values(amounts).reduce((sum, value) => {
     const amount = Number(value)
     return sum + (
@@ -42,6 +44,7 @@ function SpendingForm({ month }: SpendingFormProps) {
       aria-describedby="spending-help"
       onChange={() => setConfirmation(null)}
       onSubmit={(event) => {
+        // This demo shows a confirmation but does not send or save the data.
         event.preventDefault()
         setConfirmation(
           {
@@ -54,6 +57,7 @@ function SpendingForm({ month }: SpendingFormProps) {
       }}
     >
       <div className="amount-fields">
+        {/* Create one input for each spending category. */}
         {categories.map((category) => (
           <div className="field" key={category.key}>
             <label htmlFor={category.key}>
