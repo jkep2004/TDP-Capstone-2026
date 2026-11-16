@@ -23,7 +23,7 @@ RUN apt-get update && \
         msodbcsql18 && \
     rm -rf /var/lib/apt/lists/*
 
-COPY src/requirements-dev.txt ./requirements.txt
+COPY src/requirements.txt ./requirements.txt
 
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
