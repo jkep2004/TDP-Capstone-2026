@@ -13,10 +13,8 @@ load_dotenv()
 query = {
     "Encrypt": "yes",
     "TrustServerCertificate": "no",
+    "driver": "ODBC Driver 18 for SQL Server"
 }
-driver = os.getenv("DB_DRIVER")
-if driver:
-    query["driver"] = driver
 
 connection_url = URL.create(
     "mssql+pyodbc",
