@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from ..schemas.HealthResponse import HealthResponse
+from ..schemas.ErrorResponse import ErrorResponse
 from database.database import get_db
 
 router = APIRouter()
@@ -56,7 +57,7 @@ def health():
         },
         503: { # TODO: Add ErrorResponse model to OpenAPI spec
             "description": "Database connection failed",
-            "model": HTTPException,
+            "model": ErrorResponse,
             "content": {
                 "application/json": {
                     "example": {
