@@ -105,7 +105,7 @@ stored.
 - Secure coding.
 - Initial DevSecOps pipeline.
 
-### Sprint 2 --- Carbon Calculation
+### Sprint 2 - Carbon Calculation
 
 **Outcome:** Customer receives a carbon-impact estimate.
 
@@ -118,7 +118,7 @@ stored.
 - API development.
 - Testing and security.
 
-### Sprint 3 --- Insights & Recommendations
+### Sprint 3 - Insights & Recommendations
 
 **Outcome:** Customer understands their impact and receives
 recommendations.
@@ -133,7 +133,7 @@ recommendations.
 - Dashboard development.
 - Testing and DevSecOps.
 
-### Sprint 4 --- Final MVP & Showcase
+### Sprint 4 - Final MVP & Showcase
 
 **Outcome:** Customer-ready product.
 
