@@ -55,7 +55,7 @@ resource "azurerm_container_app_environment" "api_env" {
   resource_group_name = azurerm_resource_group.rg.name
 }
 
-# 7. Azure Container App (API Host)
+# 7. Azure Container App (Backend API Host)
 resource "azurerm_container_app" "api_app" {
   name                         = "ca-${var.project_name}-api-${var.environment}"
   container_app_environment_id = azurerm_container_app_environment.api_env.id
@@ -64,7 +64,7 @@ resource "azurerm_container_app" "api_app" {
 
   ingress {
     external_enabled = true
-    target_port      = 80
+    target_port      = 8000
     traffic_weight {
       latest_revision = true
       percentage      = 100
@@ -74,7 +74,8 @@ resource "azurerm_container_app" "api_app" {
   template {
     container {
       name   = "carbon-api"
-      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+      # GHCR backend image
+      image  = "ghcr.io/esemsc-f8af2eba/tdp-capstone-2026-backend:unstable"
       cpu    = 0.25
       memory = "0.5Gi"
 
@@ -94,11 +95,63 @@ resource "azurerm_container_app" "api_app" {
         name        = "DB_PASSWORD"
         secret_name = "db-password"
       }
+      env {
+        name  = "DB_DRIVER"
+        value = "ODBC Driver 18 for SQL Server"
+      }
+      env {
+        name  = "DB_ADMIN_USER"
+        value = var.sql_admin_username
+      }
+      env {
+        name        = "DB_ADMIN_PASSWORD"
+        secret_name = "db-password"
+      }
+      env {
+        name  = "AZURE_TENANT_ID"
+        value = "42b67f59-094a-4e7c-9737-bbd0061324d7"
+      }
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = "e4ef5f81-5c39-41d1-af84-742d6f27029e"
+      }
     }
   }
 
   secret {
     name  = "db-password"
     value = var.sql_admin_password
+  }
+}
+
+# 8. Azure Container App (Frontend Web Host)
+resource "azurerm_container_app" "frontend_app" {
+  name                         = "ca-${var.project_name}-web-${var.environment}"
+  container_app_environment_id = azurerm_container_app_environment.api_env.id
+  resource_group_name          = azurerm_resource_group.rg.name
+  revision_mode                = "Single"
+
+  ingress {
+    external_enabled = true
+    target_port      = 80
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
+  }
+
+  template {
+    container {
+      name   = "carbon-frontend"
+      image  = "ghcr.io/esemsc-f8af2eba/tdp-capstone-2026-frontend:unstable"
+      cpu    = 0.25
+      memory = "0.5Gi"
+
+      # transfer backend public address to front end
+      env {
+        name  = "VITE_API_BASE_URL"
+        value = "https://${azurerm_container_app.api_app.ingress[0].fqdn}"
+      }
+    }
   }
 }
