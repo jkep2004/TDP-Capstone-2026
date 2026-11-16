@@ -1,7 +1,9 @@
 /* =====================================================================
    infra/database/test_spending.sql   (T-SQL) - OPTIONAL, for testing only
-   Loads src/test-data/sample_customer_spending_v3_london_heathrow.csv
+   Loads src/test-data/sample_customer_spending.csv (v1, customers 1-3)
    (wide -> long format; values unchanged) into Spending.
+   v2 and v3 are kept OUT of the database so they can be used to test
+   the upload endpoints.
    Like the app, YOU choose the month: change @SpendMonth below
    (must be the 1st of a month). Run after schema.sql and seed.sql.
    SYNTHETIC / TEST DATA ONLY - no real customer information.
@@ -40,16 +42,7 @@ INSERT INTO dbo.Spending (CustomerId, CategoryId, SpendMonth, WeekNumber, Amount
 (3, 3, @SpendMonth, 2, 125.00),
 (3, 1, @SpendMonth, 3, 50.00),
 (3, 2, @SpendMonth, 3, 180.00),
-(3, 3, @SpendMonth, 3, 120.00),
-(4, 1, @SpendMonth, 1, 675.00),
-(4, 2, @SpendMonth, 1, 160.00),
-(4, 3, @SpendMonth, 1, 70.00),
-(4, 1, @SpendMonth, 2, 780.00),
-(4, 2, @SpendMonth, 2, 180.00),
-(4, 3, @SpendMonth, 2, 75.00),
-(4, 1, @SpendMonth, 3, 720.00),
-(4, 2, @SpendMonth, 3, 170.00),
-(4, 3, @SpendMonth, 3, 80.00);
+(3, 3, @SpendMonth, 3, 120.00);
 
-SELECT COUNT(*) AS SpendingRowsLoaded FROM dbo.Spending WHERE SpendMonth = @SpendMonth;  -- expect 36
+SELECT COUNT(*) AS SpendingRowsLoaded FROM dbo.Spending WHERE SpendMonth = @SpendMonth;  -- expect 27 (3 customers x 3 weeks x 3 categories)
 GO

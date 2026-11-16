@@ -44,10 +44,10 @@ INSERT INTO dbo.Assumptions (Name, CategoryId, Value, Unit, Description, Source)
 GO
 
 INSERT INTO dbo.Customers (CustomerId, PersonaType, DataSource) VALUES
-(1, NULL, N'test-data v3'),
-(2, NULL, N'test-data v3'),
-(3, NULL, N'test-data v3'),
-(4, N'High Commuter (Heathrow)', N'test-data v3');
+(1, NULL, N'test-data (v1-v3)'),
+(2, NULL, N'test-data (v1-v3)'),
+(3, NULL, N'test-data (v1-v3)'),
+(4, N'High Commuter (Heathrow)', N'test-data v3');   -- kept so v3 uploads can be tested
 GO
 
 INSERT INTO dbo.RecommendationRules (CategoryId, MonthlyThresholdGBP, RecommendationText, ReductionPercentage) VALUES

@@ -7,7 +7,7 @@ Related tickets: SCRUM-12, SCRUM-13, SCRUM-14
 
 | Data | Source | Notes |
 |---|---|---|
-| Customer spending (test data) | QA starter repo `qatrainer/Nationwide-TDP-2026-v2/test-data`, copied to `src/test-data` | We use **v3** (`sample_customer_spending_v3_london_heathrow.csv`): 4 customers x 3 weeks |
+| Customer spending (test data) | QA starter repo `qatrainer/Nationwide-TDP-2026-v2/test-data`, copied to `src/test-data` | **v1** (`sample_customer_spending.csv`, customers 1-3 x 3 weeks) is loaded for testing by `test_spending.sql`. **v2** and **v3** (adds customer 4, Heathrow commuter) are kept out of the database to test the upload endpoints |
 | Spending thresholds | Appendix A - Recommended UK Spending Personas | Monthly: Travel £300, Food £250, Utilities £150 |
 | Recommendation logic and examples | Appendix B - Recommendation Engine Examples | Rule-based; savings and carbon formulas |
 | Emission factors | **UK Government (Defra / University of Leeds), "UK and England's carbon footprint to 2023" - Spend-based emissions multipliers**, sheet `COICOP_multipliers_2023` (published 30 June 2026, Open Government Licence 3.0) | kgCO2e per £, **including VAT**. COICOP is the household-spending classification, so it fits customer spending |
@@ -108,5 +108,5 @@ Connection details go in your local `.env` (never commit it). Then run, in order
 
 1. `schema.sql` - creates the tables and the view (drops existing tables first, so tell the team before running).
 2. `seed.sql` - reference data (categories, emission factors, assumptions, customers, rules). No spending.
-3. `test_spending.sql` - optional, for testing: loads the test CSV for the month set in `@SpendMonth` (36 rows).
+3. `test_spending.sql` - optional, for testing: loads v1 of the test data for the month set in `@SpendMonth` (27 rows).
 4. `queries.sql` - checks the data and data quality.
