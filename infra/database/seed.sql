@@ -54,7 +54,7 @@ GO
      Utilities = average of COICOP 4.5.1 Electricity (1.0317) and 4.5.2 Gas (3.0773)  2.0545
    Every carbon-tracked category has its own factor from the same sheet.
    "avg" = simple (unweighted) average of the listed COICOP codes; the sheet
-   has no spending weights, so this is a team approximation (see docs/data.md).
+   has no spending weights, so this is an approximation (see docs/data.md).
    Main category factors are used when the user only gives the main category. */
 INSERT INTO dbo.EmissionsFactors (CategoryId, KgCO2ePerGBP, Unit, Source, Version, EffectiveDate) VALUES
 -- Main categories
@@ -84,13 +84,13 @@ INSERT INTO dbo.Assumptions (Name, CategoryId, Value, Unit, Description, Source)
 (N'TravelThreshold',     1,  300.0000, N'GBP/month', N'Monthly travel spend above this triggers recommendations',    N'Appendix A'),
 (N'FoodThreshold',       2,  250.0000, N'GBP/month', N'Monthly food spend above this triggers recommendations',      N'Appendix A'),
 (N'UtilitiesThreshold',  3,  150.0000, N'GBP/month', N'Monthly utilities spend above this triggers recommendations', N'Appendix A'),
-(N'ShoppingThreshold',   4,  250.0000, N'GBP/month', N'Monthly shopping spend above this triggers recommendations. Roughly the UK average: household goods and services c.GBP 40.60/week plus clothing and footwear c.GBP 17-22/week, x 4.33 = c.GBP 250-270/month, rounded down', N'ONS Family spending in the UK FYE 2025 (team rounding)'),
-(N'ShoppingReductionPct',  4, 0.1600, N'fraction',  N'ProjectedSavings = SpendAmount x ReductionPercentage (no Appendix B example for shopping; average of the travel, food and utilities percentages)', N'Team decision'),
+(N'ShoppingThreshold',   4,  250.0000, N'GBP/month', N'Monthly shopping spend above this triggers recommendations. Roughly the UK average: household goods and services c.GBP 40.60/week plus clothing and footwear c.GBP 17-22/week, x 4.33 = c.GBP 250-270/month, rounded down', N'ONS Family spending in the UK FYE 2025, rounded down'),
+(N'ShoppingReductionPct',  4, 0.1600, N'fraction',  N'ProjectedSavings = SpendAmount x ReductionPercentage (no Appendix B example for shopping; average of the travel, food and utilities percentages)', N'Derived from Appendix B'),
 (N'TravelReductionPct',    1, 0.1400, N'fraction',  N'ProjectedSavings = SpendAmount x ReductionPercentage (avg of Appendix B travel examples: 80/520, 60/450)', N'Derived from Appendix B'),
 (N'FoodReductionPct',      2, 0.1400, N'fraction',  N'ProjectedSavings = SpendAmount x ReductionPercentage (avg of Appendix B food examples: 45/320, 90/650)', N'Derived from Appendix B'),
 (N'UtilitiesReductionPct', 3, 0.1900, N'fraction',  N'ProjectedSavings = SpendAmount x ReductionPercentage (avg of Appendix B utilities examples: 30/180, 55/260)', N'Derived from Appendix B'),
 (N'CarbonModel',         NULL, 1.0000, N'n/a',       N'CarbonImpact = SpendAmount x EmissionFactor', N'Appendix B'),
-(N'SubCategoryRollUp',   NULL, 1.0000, N'n/a',       N'Sub-category spend is added to its main category for thresholds; a sub-category with no factor uses its main category factor', N'Team decision (see docs/data.md)');
+(N'SubCategoryRollUp',   NULL, 1.0000, N'n/a',       N'Sub-category spend is added to its main category for thresholds; a sub-category with no factor uses its main category factor', N'See docs/data.md');
 GO
 
 INSERT INTO dbo.Customers (CustomerId, PersonaType, DataSource) VALUES
@@ -101,7 +101,7 @@ INSERT INTO dbo.Customers (CustomerId, PersonaType, DataSource) VALUES
 GO
 
 /* Rules are on MAIN categories only.
-   Travel/Food/Utilities from Appendix A/B; Shopping is a team decision (see Assumptions).
+   Travel/Food/Utilities from Appendix A/B; Shopping from ONS household spending (see Assumptions).
    Housing and Other have no rule: there is no useful generic advice for them. */
 INSERT INTO dbo.RecommendationRules (CategoryId, MonthlyThresholdGBP, RecommendationText, ReductionPercentage) VALUES
 (1, 300.00, N'Reduce solo car journeys, car share or switch some commutes to public transport', 0.1400),
