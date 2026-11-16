@@ -1,19 +1,25 @@
 import { useState } from 'react'
 
+type SpendingFormProps = {
+  month: string
+}
+
 const categories = [
   { key: 'food', label: 'Food' },
   { key: 'travel', label: 'Travel' },
   { key: 'utilities', label: 'Utilities' },
 ] as const
 
-function SpendingForm() {
-  const [month, setMonth] = useState('')
+function SpendingForm({ month }: SpendingFormProps) {
   const [amounts, setAmounts] = useState({
     food: '',
     travel: '',
     utilities: '',
   })
-  const [confirmation, setConfirmation] = useState('')
+  const [confirmation, setConfirmation] = useState<{
+    month: string
+    message: string
+  } | null>(null)
 
   // Add amounts in pence, then convert back to pounds.
   const totalPence = Object.values(amounts).reduce((sum, value) => {
@@ -32,28 +38,21 @@ function SpendingForm() {
 
   return (
     <form
+      id="manual-spending-form"
       aria-describedby="spending-help"
-      onChange={() => setConfirmation('')}
+      onChange={() => setConfirmation(null)}
       onSubmit={(event) => {
         event.preventDefault()
         setConfirmation(
-          `Demo submission for ${month}: ${formattedTotal}. ` +
-          'Nothing has been saved to the database or calculated yet.'
+          {
+            month,
+            message:
+              `Demo submission for ${month}: ${formattedTotal}. ` +
+              'Nothing has been saved to the database or calculated yet.',
+          }
         )
       }}
     >
-      <div className="field">
-        <label htmlFor="month">Spending month</label>
-        <input
-          id="month"
-          name="month"
-          type="month"
-          value={month}
-          onChange={(event) => setMonth(event.target.value)}
-          required
-        />
-      </div>
-
       <div className="amount-fields">
         {categories.map((category) => (
           <div className="field" key={category.key}>
@@ -87,14 +86,14 @@ function SpendingForm() {
       </div>
 
       <p className="help-text">
-        Demo mode: does not save data and will clear when page refreshes
-
+        Demo mode: submissions are temporary, do not save data, and will clear
+        when the page refreshes.
       </p>
 
-      <button type="submit">Submit spending</button>
+      <button type="submit">Submit demo spending</button>
 
       <p className="confirmation" role="status">
-        {confirmation}
+        {confirmation?.month === month ? confirmation.message : ''}
       </p>
     </form>
   )

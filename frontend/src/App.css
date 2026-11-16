@@ -34,6 +34,34 @@ h2 {
   border-radius: 16px;
 }
 
+.mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.mode-button {
+  margin-top: 0;
+  color: #163d70;
+  background: #edf3fa;
+  border: 1px solid #c8d4e2;
+}
+
+.mode-button[aria-pressed='true'] {
+  color: white;
+  background: #163d70;
+  border-color: #163d70;
+}
+
+.mode-button:hover {
+  background: #dce8f5;
+}
+
+.mode-button[aria-pressed='true']:hover {
+  background: #102e56;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -115,4 +143,45 @@ button:hover {
     grid-template-columns: 1fr;
     gap: 0;
   }
+}
+
+.csv-preview {
+  overflow-x: auto;
+  max-height: 320px;
+  padding: 16px;
+  background: #edf3fa;
+  border-radius: 8px;
+  line-height: 1.6;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spending-table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+.spending-table caption {
+  text-align: left;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.spending-table th,
+.spending-table td {
+  padding: 12px;
+  text-align: right;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.spending-table th:first-child {
+  text-align: left;
+}
+
+.spending-table tfoot {
+  font-weight: 700;
 }
