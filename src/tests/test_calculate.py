@@ -31,18 +31,15 @@ def test_happy_path():
      {"CustomerID": int(test_row["customer_id"]), "category": "food",      "amount": float(test_row["food"]), "week": int(test_row["week"])},
      {"CustomerID": int(test_row["customer_id"]), "category": "utilities", "amount": float(test_row["utilities"]), "week": int(test_row["week"])}
     ]
-    # 2. Build three spending items (travel, food, utilities) from that row.
-    #    Each item needs: CustomerID, category, amount, week.
-    #    Convert the CSV strings to the right types first.
-    # 3. Wrap the items as {"spending": [...]} and POST to /v1/calculate.
+  
     test_payload = {"spending": test_rows}
     response = client.post("/v1/calculate", json=test_payload)
     respond = response.json()
-    # 4. Assert status code is 200.
+
     assert response.status_code == 200
-    # 5. Assert the four keys: status, totalCarbonKg, breakdown, recommendations.
+
+    
     assert set(respond.keys()) == {"status", "totalCarbonKg", "breakdown", "recommendations"}
-    # 6. Assert their types, and that breakdown has three entries.
     assert isinstance(respond["status"], str)
     assert isinstance(respond["totalCarbonKg"], (int, float))
     assert isinstance(respond["breakdown"], list)
