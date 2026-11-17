@@ -53,5 +53,15 @@ async def favicon():
     return FileResponse(STATIC_DIR / "img" / "favicon.ico")
 
 router = APIRouter()
-app.include_router(health.router, prefix="/v1/health", tags=["Health"])
-app.include_router(calculate.router, prefix="/v1/calculate", tags=["Calculate"])
+app.include_router(health.router, prefix="/api/v1", tags=["Health"])
+app.include_router(calculate.router, prefix="/api/v1", tags=["Calculate"])
+app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
+
+@app.get("/api/user") # DEBUG
+def user_endpoint(
+    user=Depends(get_current_user)
+):
+    return {
+        "message": "Authenticated API endpoint",
+        "user": user
+    }
