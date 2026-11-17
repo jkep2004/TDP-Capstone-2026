@@ -33,3 +33,9 @@ variable "client_ip_address" {
   type        = string
   default     = "0.0.0.0" # Will be overridden during deployment
 }
+
+variable "github_pat" {
+  type        = string
+  description = "GitHub Personal Access Token for GHCR container registry"
+  sensitive   = true
+}
