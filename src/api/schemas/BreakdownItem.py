@@ -3,7 +3,7 @@ from ..schemas.Category import Itemtype
 
 
 
-class BreakdownItem(BaseModel):
+class BreakdownItem(BaseModel, extra = "forbid"):
     category: Itemtype
     subcategory: str | None = Field(default=None, description="The subcategory of the spending category")
     week: int = Field(gt=1, le = 5, description="The week number of the month")
