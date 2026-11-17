@@ -21,7 +21,7 @@ router = APIRouter()
                         "totalCarbonKg": 0,
                         "breakdown": [
                             {"category": "food",   "subcategory": "eating out", "amount": 100, "week": 1,   "carbonKg": 0},
-                            {"category": "travel", "subcategory": "eating out", "amount": 200, "week": 1, "carbonKg": 0}
+                            {"category": "travel", "subcategory": "flights", "amount": 200, "week": 1, "carbonKg": 0}
                         ],
                         "recommendations": []
                     },
