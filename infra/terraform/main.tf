@@ -86,7 +86,7 @@ resource "azurerm_container_app" "api_app" {
   template {
     container {
       name   = "carbon-api"
-      image  = "ghcr.io/esemsc-f8af2eba/tdp-capstone-2026-backend:unstable"
+      image  = "ghcr.io/jkep2004/tdp-capstone-2026-backend:unstable"
       cpu    = 0.25
       memory = "0.5Gi"
 
@@ -166,7 +166,7 @@ resource "azurerm_container_app" "frontend_app" {
   template {
     container {
       name   = "carbon-frontend"
-      image  = "ghcr.io/esemsc-f8af2eba/tdp-capstone-2026-frontend:unstable"
+      image  = "ghcr.io/jkep2004/tdp-capstone-2026-frontend:unstable"
       cpu    = 0.25
       memory = "0.5Gi"
 
