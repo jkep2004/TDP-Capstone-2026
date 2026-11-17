@@ -1,10 +1,13 @@
 # NW TDP 2026 v2
-from fastapi import FastAPI, HTTPException, APIRouter
+from fastapi import Depends, FastAPI, HTTPException, APIRouter
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from pydantic import BaseModel, Field
-from .Routers import calculate, health
+
+from .Routers import calculate, health, auth
+from .Core.auth import get_current_user
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -40,6 +43,17 @@ app = FastAPI(
         "url": "https://opensource.org/licenses/MIT",
     },
     openapi_tags=tags_metadata,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        # "https://your-frontend-domain.com" # TODO: Replace with your frontend domain in production (And add to AZURE Entra app registration)
+    ],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["Authorization", "Content-Type"]
 )
 
 app.mount(
