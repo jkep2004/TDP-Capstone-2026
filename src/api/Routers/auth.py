@@ -27,8 +27,8 @@ router = APIRouter(
             "content": {
                 "application/json": {
                     "example": {
-                        "access_token": "<JWT>",
-                        "token_type": "bearer",
+                        "access_token": "<JWT>", # nosec B105
+                        "token_type": "bearer", # nosec B105
                         "expires_in": 3600,
                         "user": {
                             "id": "<user_id>",
@@ -74,7 +74,7 @@ def authenticate(request: AuthRequest):
 
     return {
         "access_token": access_token,
-        "token_type": "bearer",
+        "token_type": "bearer", # nosec B105
         "expires_in": expires_in,
         "user": {
             "id": user["user_id"],
