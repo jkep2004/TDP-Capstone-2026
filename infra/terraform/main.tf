@@ -120,11 +120,11 @@ resource "azurerm_container_app" "api_app" {
       }
       env {
         name  = "AZURE_TENANT_ID"
-        value = "c2f2b391-a7cb-4676-b83c-59b507c6f6b7"
+        value = var.TENANT_ID
       }
       env {
         name  = "AZURE_CLIENT_ID"
-        value = "38344a61-f922-47e6-b292-c374f1ea7076"
+        value = var.CLIENT_ID
       }
     }
   }
