@@ -6,11 +6,11 @@ Owner: Data Engineer (Yihong Wang)
 
 | Data | Source | Notes |
 |---|---|---|
-| Customer spending (test data) | QA starter repo `qatrainer/Nationwide-TDP-2026-v2/test-data`, copied to `src/test-data` | **v1** (`sample_customer_spending.csv`, customers 1-3 x 3 weeks) is loaded for testing by `test_spending.sql`. **v2** and **v3** (adds customer 4, Heathrow commuter) are kept out of the database to test the upload endpoints |
-| Spending thresholds | Appendix A - Recommended UK Spending Personas | Monthly: Travel £300, Food £250, Utilities £150 |
-| Shopping threshold | ONS *Family spending in the UK, April 2024 to March 2025* | Monthly: Shopping £250 (see section 3) |
-| Recommendation logic and examples | Appendix B - Recommendation Engine Examples | Rule-based; savings and carbon formulas |
-| Emission factors | **UK Government (Defra / University of Leeds), "UK and England's carbon footprint to 2023" - Spend-based emissions multipliers**, sheet `COICOP_multipliers_2023` (published 30 June 2026, Open Government Licence 3.0) | kgCO2e per £, **including VAT**. COICOP is the household-spending classification, so it fits customer spending |
+| Customer spending (test data) | QA starter repo [`qatrainer/Nationwide-TDP-2026-v2/test-data`](https://github.com/qatrainer/Nationwide-TDP-2026-v2), copied to `src/test-data` | **v1** (`sample_customer_spending.csv`, customers 1-3 x 3 weeks) is loaded for testing by `test_spending.sql`. **v2** and **v3** (adds customer 4, Heathrow commuter) are kept out of the database to test the upload endpoints |
+| Spending thresholds | Appendix A - Recommended UK Spending Personas (project brief in [`Capstone-PDFs`](../Capstone-PDFs)) | Monthly: Travel £300, Food £250, Utilities £150 |
+| Shopping threshold | [ONS *Family spending in the UK, April 2024 to March 2025*](https://www.ons.gov.uk/peoplepopulationandcommunity/personalandhouseholdfinances/expenditure/bulletins/familyspendingintheuk/april2024tomarch2025) | Monthly: Shopping £250 (see section 3) |
+| Recommendation logic and examples | Appendix B - Recommendation Engine Examples (project brief in [`Capstone-PDFs`](../Capstone-PDFs)) | Rule-based; savings and carbon formulas |
+| Emission factors | [**UK Government (Defra / University of Leeds), "UK and England's carbon footprint to 2023" - Spend-based emissions multipliers**](https://www.gov.uk/government/statistics/uks-carbon-footprint), sheet `COICOP_multipliers_2023` (published 30 June 2026, Open Government Licence 3.0) | kgCO2e per £, **including VAT**. COICOP is the household-spending classification, so it fits customer spending |
 
 No real customer data is used. All data is synthetic or test data.
 
@@ -51,7 +51,7 @@ No real customer data is used. All data is synthetic or test data.
 
 The test CSVs only have Travel, Food and Utilities, so all 27 test rows are on those main categories. Sub-categories, Shopping, Housing and Other have factors and rules ready but no test spending yet; they fill up when users upload or enter spending. Sub-category factors are in section 3.
 
-## 3. How the data is used (SCRUM-13)
+## 3. How the data is used
 
 **Spending data** = how much a customer spends in each category per week or month.
 
@@ -134,7 +134,7 @@ MonthlySpend = manual monthly total, if the user entered one
 - 4.33 is stored in the `Assumptions` table as `WeeksPerMonth`, so the rule is documented and can be changed.
 - The month is required: spending without a month cannot be compared to the monthly thresholds or shown on the progress page.
 
-## 4. Data quality (SCRUM-14)
+## 4. Data quality
 
 | Dimension | Check | How it is enforced |
 |---|---|---|
