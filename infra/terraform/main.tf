@@ -145,7 +145,7 @@ resource "azurerm_container_app" "frontend_app" {
   ingress {
     external_enabled = true
     target_port      = 80
-    transport        = "auto" # 【修复】补全传输协议
+    transport        = "auto" 
     traffic_weight {
       latest_revision = true
       percentage      = 100
