@@ -28,7 +28,10 @@ jobs:
       - name: Install pip-audit
         run: python -m pip install pip-audit
 
-      - name: Scan Python dependencies
+      - name: Scan application dependencies
         run: |
-          python -m pip_audit \
-            -r src/requirements-dev.txt
+          python -m pip_audit -r src/requirements.txt
+
+      - name: Scan development dependencies
+        run: |
+          python -m pip_audit -r src/requirements-dev.txt
