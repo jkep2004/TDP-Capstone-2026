@@ -95,10 +95,11 @@ def validate_entra_token(token: str) -> dict:
 
         return payload
 
-    except (jwt.PyJWTError, ValueError, TypeError):
+    except (jwt.PyJWTError, ValueError, TypeError) as e:
         
         # TODO: Replace with structured logging
         # logger.error("ENTRA TOKEN VALIDATION ERROR: {}", repr(e))
+        print("ERROR: {}".format(repr(e)))
 
         raise HTTPException(
             status_code=401,
