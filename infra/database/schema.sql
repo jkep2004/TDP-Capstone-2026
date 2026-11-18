@@ -5,6 +5,8 @@
    - CSV upload  -> weekly rows (WeekNumber 1-5)
    - manual entry -> one whole-month total (WeekNumber NULL)
    The view turns both into a MONTHLY figure for the monthly thresholds.
+   Categories have two levels: main categories (ParentCategoryId NULL)
+   and optional sub-categories (e.g. Fuel under Travel).
    Re-runnable: drops and recreates all tables.
    ===================================================================== */
 
@@ -16,10 +18,16 @@ DROP TABLE IF EXISTS dbo.Customers;
 DROP TABLE IF EXISTS dbo.Categories;
 GO
 
+/* ParentCategoryId: NULL = main category, otherwise the main category it belongs to.
+   IsCarbonTracked:  0 = spend is recorded but has no carbon (e.g. mortgage repayments). */
 CREATE TABLE dbo.Categories (
-    CategoryId   INT IDENTITY(1,1) PRIMARY KEY,
-    Name         NVARCHAR(50)  NOT NULL CONSTRAINT UQ_Categories_Name UNIQUE,
-    Description  NVARCHAR(200) NULL
+    CategoryId        INT IDENTITY(1,1) PRIMARY KEY,
+    Name              NVARCHAR(50)  NOT NULL CONSTRAINT UQ_Categories_Name UNIQUE,
+    Description       NVARCHAR(200) NULL,
+    ParentCategoryId  INT           NULL
+        CONSTRAINT FK_Categories_Parent REFERENCES dbo.Categories(CategoryId),
+    IsCarbonTracked   BIT           NOT NULL CONSTRAINT DF_Categories_IsCarbonTracked DEFAULT 1,
+    CONSTRAINT CK_Categories_NotOwnParent CHECK (ParentCategoryId IS NULL OR ParentCategoryId <> CategoryId)
 );
 GO
 
@@ -57,6 +65,7 @@ CREATE TABLE dbo.Customers (
 GO
 
 /* One row per customer, category, month and week (long format).
+   CategoryId can be a main category or a sub-category.
    SpendMonth = the month the user selects (stored as the 1st of that month).
    WeekNumber = week within that month (1-5) for CSV uploads,
                 NULL for a manual whole-month total. */
@@ -79,6 +88,7 @@ CREATE TABLE dbo.Spending (
 );
 GO
 
+/* Thresholds apply to MAIN categories; sub-category spend is added up to its main category. */
 CREATE TABLE dbo.RecommendationRules (
     RuleId               INT IDENTITY(1,1) PRIMARY KEY,
     CategoryId           INT           NOT NULL
@@ -88,6 +98,47 @@ CREATE TABLE dbo.RecommendationRules (
     ReductionPercentage  DECIMAL(5,4)  NOT NULL
         CONSTRAINT CK_Rules_Reduction CHECK (ReductionPercentage > 0 AND ReductionPercentage < 1)
 );
+GO
+
+/* Each category with its main category.
+   For a main category, TopCategoryId is itself. */
+CREATE OR ALTER VIEW dbo.vw_CategoryHierarchy AS
+SELECT c.CategoryId,
+       c.Name,
+       c.ParentCategoryId,
+       COALESCE(p.CategoryId, c.CategoryId) AS TopCategoryId,
+       COALESCE(p.Name, c.Name)             AS TopCategoryName,
+       CASE WHEN c.ParentCategoryId IS NULL THEN 1 ELSE 2 END AS CategoryLevel,
+       c.IsCarbonTracked
+FROM dbo.Categories c
+LEFT JOIN dbo.Categories p ON p.CategoryId = c.ParentCategoryId;
+GO
+
+/* The emission factor to use for each category:
+   - its own latest factor, if it has one
+   - otherwise its main category's latest factor (fallback)
+   - NULL if the category is not carbon-tracked */
+CREATE OR ALTER VIEW dbo.vw_EffectiveEmissionsFactors AS
+SELECT c.CategoryId,
+       c.Name,
+       c.ParentCategoryId,
+       c.IsCarbonTracked,
+       CASE WHEN c.IsCarbonTracked = 1 THEN COALESCE(own.KgCO2ePerGBP, par.KgCO2ePerGBP) END AS KgCO2ePerGBP,
+       CASE WHEN c.IsCarbonTracked = 1 THEN COALESCE(own.Source,  par.Source)  END AS Source,
+       CASE WHEN c.IsCarbonTracked = 1 THEN COALESCE(own.Version, par.Version) END AS Version,
+       CASE WHEN c.IsCarbonTracked = 0          THEN N'Not tracked'
+            WHEN own.KgCO2ePerGBP IS NOT NULL   THEN N'Own factor'
+            WHEN par.KgCO2ePerGBP IS NOT NULL   THEN N'Main category factor'
+            ELSE N'Missing' END AS FactorBasis
+FROM dbo.Categories c
+OUTER APPLY (SELECT TOP 1 ef.KgCO2ePerGBP, ef.Source, ef.Version
+             FROM dbo.EmissionsFactors ef
+             WHERE ef.CategoryId = c.CategoryId
+             ORDER BY ef.EffectiveDate DESC, ef.EmissionsFactorId DESC) own
+OUTER APPLY (SELECT TOP 1 ef.KgCO2ePerGBP, ef.Source, ef.Version
+             FROM dbo.EmissionsFactors ef
+             WHERE ef.CategoryId = c.ParentCategoryId
+             ORDER BY ef.EffectiveDate DESC, ef.EmissionsFactorId DESC) par;
 GO
 
 /* Monthly spend per customer, category and month:
@@ -111,4 +162,20 @@ FROM (
     GROUP BY CustomerId, CategoryId, SpendMonth
 ) t
 CROSS JOIN (SELECT Value FROM dbo.Assumptions WHERE Name = N'WeeksPerMonth') a;
+GO
+
+/* Monthly spend and carbon per customer and MAIN category.
+   Carbon is worked out per (sub-)category with its own factor, then added up.
+   Used for thresholds, recommendations and the dashboard. */
+CREATE OR ALTER VIEW dbo.vw_MonthlyByMainCategory AS
+SELECT m.CustomerId,
+       m.SpendMonth,
+       h.TopCategoryId   AS CategoryId,
+       h.TopCategoryName AS Category,
+       CAST(SUM(m.EstMonthlyGBP) AS DECIMAL(10,2))                   AS EstMonthlyGBP,
+       CAST(SUM(m.EstMonthlyGBP * ef.KgCO2ePerGBP) AS DECIMAL(12,2)) AS EstMonthlyCarbonKg
+FROM dbo.vw_EstimatedMonthlySpend m
+JOIN dbo.vw_CategoryHierarchy h          ON h.CategoryId  = m.CategoryId
+JOIN dbo.vw_EffectiveEmissionsFactors ef ON ef.CategoryId = m.CategoryId
+GROUP BY m.CustomerId, m.SpendMonth, h.TopCategoryId, h.TopCategoryName;
 GO

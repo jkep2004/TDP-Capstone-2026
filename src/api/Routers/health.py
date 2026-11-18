@@ -6,7 +6,7 @@ from ..schemas.HealthResponse import HealthResponse
 from ..schemas.ErrorResponse import ErrorResponse
 from database.database import get_db
 
-router = APIRouter()
+router = APIRouter(prefix="/health")
 
 @router.get(
     "/",
