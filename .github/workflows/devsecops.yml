@@ -2,9 +2,9 @@ name: DevSecOps CI/CD Pipeline
 
 on:
   push:
-    branches: ["main", "dev"]
+    branches: ["main", "dev","fix-workflow_helen"]
   pull_request:
-    branches: ["main", "dev"]
+    branches: ["main", "dev","fix-workflow_helen"]
   workflow_dispatch:
 
 permissions:
