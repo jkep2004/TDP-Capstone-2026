@@ -21,6 +21,6 @@ export const loginRequest = {
   scopes: [
     "openid",
     "profile",
-    `api://${import.meta.env.VITE_ENTRA_API_CLIENT_ID}/access_as_user`
+    "api://e4ef5f81-5c39-41d1-af84-742d6f27029e/access_as_user"
   ]
 };
