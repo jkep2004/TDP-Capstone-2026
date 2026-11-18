@@ -3,26 +3,29 @@
 **Customer insights and recommendations**
 
 **Database**
-- Views for monthly carbon by category, top categories and month-on-month change
-- Recommendation rules, thresholds and reduction % stored in the database with their sources
-- Multi-month synthetic test data loaded, quality checks pass
+- `vw_MonthlyByMainCategory` gives monthly spend and carbon per customer and main category
+- New views for top categories and month-on-month change
+- Thresholds and reduction % in `Assumptions` and `RecommendationRules`, with sources (Appendix A, Appendix B, ONS)
+- Multi-month test data loaded through `init_db.py`, quality checks in `queries.sql` return 0
 - `data.md` updated with the new views and rules
 
 **API**
-- Endpoints return the carbon summary, carbon by category, trends, recommendations and savings
-- Recommendations come from the rules in `RecommendationRules`, not hardcoded in the API
+- Endpoints return the carbon summary, carbon by category, trends, recommendations and savings for one customer
+- Recommendations come from `RecommendationRules`, not hardcoded in the API
 - Each recommendation shows both the money saved and the carbon saved
-- Inputs validated, missing or incomplete data handled without errors
+- Categories that aren't carbon-tracked (Mortgage) are shown with no carbon, not 0 or an error
+- Missing months or incomplete data handled without errors
 
 **Front end**
 - Customer can see their summary, category breakdown, trends and recommendations
 
 **Testing**
-- Tests cover carbon summaries, category calculations, trends, recommendation logic, invalid or incomplete data, API responses and database integration
-- Tests run in CI/CD and pass
+- Tests check results against the expected values for the test customers (e.g. customer 1 Travel: £426.11, 1182.33 kg, £59.66 saved)
+- Tests cover trends, recommendation logic, invalid or incomplete data, API responses and database integration
+- Tests run in GitHub Actions and pass
 
 **DevSecOps**
-- Customer data handled securely, API only returns that customer's data
+- API only returns the logged-in customer's data
 - Dependencies scanned, secrets kept in GitHub Secrets
 - SAST and SCA done, DAST done where practical, findings fixed
 
