@@ -49,7 +49,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        # "https://your-frontend-domain.com" # TODO: Replace with your frontend domain in production (And add to AZURE Entra app registration)
+        "http://localhost:8000",
+        # "https://frontend-domain.com" # TODO: Replace with frontend domain in production (And add to AZURE Entra app registration)
+        # "https://backend-domain.com" # TODO: Replace with backend domain in production (And add to AZURE Entra app registration)
     ],
     allow_credentials=False,
     allow_methods=["*"],
