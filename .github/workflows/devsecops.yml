@@ -52,6 +52,12 @@ jobs:
           DB_ADMIN_USER: ${{ secrets.DB_ADMIN_USER }}
           DB_ADMIN_PASSWORD: ${{ secrets.DB_ADMIN_PASSWORD }}
           DB_DRIVER: ODBC Driver 18 for SQL Server
+          ENTRA_TENANT_ID: ${{ secrets.ENTRA_TENANT_ID }}
+          ENTRA_API_CLIENT_ID: ${{ secrets.ENTRA_API_CLIENT_ID }}
+          APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
+          APP_JWT_ALGORITHM: ${{ secrets.APP_JWT_ALGORITHM }}
+          APP_JWT_EXPIRE_MINUTES: ${{ secrets.APP_JWT_EXPIRE_MINUTES }}
+
         run: |
           pytest --continue-on-collection-errors
 
