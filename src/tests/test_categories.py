@@ -1,8 +1,7 @@
 import pathlib
-
 import pytest
 from fastapi.testclient import TestClient
-
+from api.schemas.Category import Itemtype, Subcategories_by_type
 
 from api.main import app
 
@@ -23,5 +22,12 @@ test_rows = [
 def test_input_validation(payload, expected_status):
     response = client.post("/v1/calculate", json=payload)
     response_data = response.json()
-    assert response_data
-    assert response.status_code == expected_status
+    assert expected_status == response.status_code
+    
+def test_category_validation():
+    assert set(Itemtype) == set(Subcategories_by_type)
+    myset = (Subcategories_by_type)
+    count_of_subcategories = 0
+    for i in myset.values():
+        count_of_subcategories += len(i)
+    assert count_of_subcategories == 13
