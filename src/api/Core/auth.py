@@ -32,14 +32,12 @@ APP_JWT_EXPIRE_MINUTES = int(
     os.getenv("APP_JWT_EXPIRE_MINUTES", "15")
 )
 
-ENTRA_ISSUER = (
-    f"https://login.microsoftonline.com/"
-    f"{TENANT_ID}/v2.0"
+ENTRA_AUTHORITY = (
+    "https://login.microsoftonline.com/common"
 )
 
 ENTRA_JWKS_URL = (
-    f"https://login.microsoftonline.com/"
-    f"{TENANT_ID}/discovery/v2.0/keys"
+    f"{ENTRA_AUTHORITY}/discovery/v2.0/keys"
 )
 
 APP_JWT_ISSUER = "backend"
@@ -63,8 +61,9 @@ def validate_entra_token(token: str) -> dict:
             signing_key.key,
             algorithms=["RS256"],
             audience=API_CLIENT_ID,
-            issuer=ENTRA_ISSUER,
+            issuer=ENTRA_AUTHORITY,
             options={
+                "verify_iss": False,
                 "require": [
                     "exp",
                     "iat",
@@ -76,6 +75,18 @@ def validate_entra_token(token: str) -> dict:
                 ]
             }
         )
+        
+        tenant_id = payload["tid"]
+
+        expected_issuer = (
+            f"https://login.microsoftonline.com/"
+            f"{tenant_id}/v2.0"
+        )
+
+        if payload["iss"] != expected_issuer:
+            raise ValueError(
+                f"Invalid issuer: {payload['iss']}"
+            )
 
         if "access_as_user" not in payload.get(
             "scp", ""
@@ -85,6 +96,9 @@ def validate_entra_token(token: str) -> dict:
         return payload
 
     except (jwt.PyJWTError, ValueError, TypeError):
+        
+        # TODO: Replace with structured logging
+        # logger.error("ENTRA TOKEN VALIDATION ERROR: {}", repr(e))
 
         raise HTTPException(
             status_code=401,
