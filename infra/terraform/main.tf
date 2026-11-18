@@ -120,11 +120,11 @@ resource "azurerm_container_app" "api_app" {
       }
       env {
         name  = "AZURE_TENANT_ID"
-        value = "42b67f59-094a-4e7c-9737-bbd0061324d7"
+        value = var.TENANT_ID
       }
       env {
         name  = "AZURE_CLIENT_ID"
-        value = "e4ef5f81-5c39-41d1-af84-742d6f27029e"
+        value = var.CLIENT_ID
       }
     }
   }
@@ -181,4 +181,26 @@ resource "azurerm_container_app" "frontend_app" {
   depends_on = [
     azurerm_container_app.api_app
   ]
+}
+
+data "azurerm_client_config" "current" {}
+
+resource "azurerm_key_vault" "kv" {
+  name                        = "kv-tdp26-carbon-t3-dev"
+  location                    = azurerm_resource_group.rg.location
+  resource_group_name         = azurerm_resource_group.rg.name
+  tenant_id                   = data.azurerm_client_config.current.tenant_id
+  sku_name                    = "standard"
+  soft_delete_retention_days  = 7
+  purge_protection_enabled    = false
+
+  # Authorization for the current logged-in user to read and write Secrets
+  access_policy {
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = data.azurerm_client_config.current.object_id
+
+    secret_permissions = [
+      "Get", "List", "Set", "Delete", "Recover", "Backup", "Restore", "Purge"
+    ]
+  }
 }
