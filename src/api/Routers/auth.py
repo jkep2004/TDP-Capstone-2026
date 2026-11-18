@@ -55,7 +55,7 @@ router = APIRouter(
 def authenticate(request: AuthRequest):
 
     entra_user = validate_entra_token(
-        request.entra_access_token
+        request.token
     )
 
     user = {
