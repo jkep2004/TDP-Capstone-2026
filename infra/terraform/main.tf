@@ -21,7 +21,7 @@ resource "azurerm_mssql_server" "sql_server" {
   minimum_tls_version          = "1.2"
 }
 
-# 3. Firewall Rule A: Allow Azure internal services (so Web App can talk to SQL Server)
+# 3. Firewall Rule A: Allow Azure internal services
 resource "azurerm_mssql_firewall_rule" "allow_azure_services" {
   name             = "AllowAzureServices"
   server_id        = azurerm_mssql_server.sql_server.id
@@ -29,7 +29,7 @@ resource "azurerm_mssql_firewall_rule" "allow_azure_services" {
   end_ip_address   = "0.0.0.0"
 }
 
-# 4. Firewall Rule B: Allow your local machine (so you can run init_db.py & SSMS/Azure Data Studio)
+# 4. Firewall Rule B: Allow your local machine
 resource "azurerm_mssql_firewall_rule" "allow_local_dev" {
   count            = var.client_ip_address != "0.0.0.0" ? 1 : 0
   name             = "AllowLocalDeveloperIP"
@@ -38,7 +38,7 @@ resource "azurerm_mssql_firewall_rule" "allow_local_dev" {
   end_ip_address   = var.client_ip_address
 }
 
-# 5. Azure SQL Database (CarbonFootprintDB - Basic Tier for cost efficiency)
+# 5. Azure SQL Database
 resource "azurerm_mssql_database" "sql_db" {
   name           = "CarbonFootprintDB"
   server_id      = azurerm_mssql_server.sql_server.id
@@ -48,7 +48,7 @@ resource "azurerm_mssql_database" "sql_db" {
   zone_redundant = false
 }
 
-# 6. Azure Container Apps Environment (Bypasses App Service Plan 0-quota limit)
+# 6. Azure Container Apps Environment
 resource "azurerm_container_app_environment" "api_env" {
   name                = "cae-${var.project_name}-${var.environment}"
   location            = azurerm_resource_group.rg.location
@@ -65,17 +65,28 @@ resource "azurerm_container_app" "api_app" {
   ingress {
     external_enabled = true
     target_port      = 8000
+    transport        = "auto" # 【修复】补全传输协议
     traffic_weight {
       latest_revision = true
       percentage      = 100
     }
   }
 
+  registry {
+    server               = "ghcr.io"
+    username             = "Helen_kuku"
+    password_secret_name = "ghcr-password"
+  }
+
+  secret {
+    name  = "ghcr-password"
+    value = var.github_pat
+  }
+
   template {
     container {
       name   = "carbon-api"
-      # GHCR backend image
-      image  = "ghcr.io/esemsc-f8af2eba/tdp-capstone-2026-backend:unstable"
+      image  = "ghcr.io/jkep2004/tdp-capstone-2026-backend:unstable"
       cpu    = 0.25
       memory = "0.5Gi"
 
@@ -134,24 +145,40 @@ resource "azurerm_container_app" "frontend_app" {
   ingress {
     external_enabled = true
     target_port      = 80
+    transport        = "auto" # 【修复】补全传输协议
     traffic_weight {
       latest_revision = true
       percentage      = 100
     }
   }
 
+  registry {
+    server               = "ghcr.io"
+    username             = "Helen_kuku"
+    password_secret_name = "ghcr-password"
+  }
+
+  secret {
+    name  = "ghcr-password"
+    value = var.github_pat
+  }
+
   template {
     container {
       name   = "carbon-frontend"
-      image  = "ghcr.io/esemsc-f8af2eba/tdp-capstone-2026-frontend:unstable"
+      image  = "ghcr.io/jkep2004/tdp-capstone-2026-frontend:unstable"
       cpu    = 0.25
       memory = "0.5Gi"
 
-      # transfer backend public address to front end
       env {
         name  = "VITE_API_BASE_URL"
         value = "https://${azurerm_container_app.api_app.ingress[0].fqdn}"
       }
     }
   }
+
+  #
+  depends_on = [
+    azurerm_container_app.api_app
+  ]
 }
