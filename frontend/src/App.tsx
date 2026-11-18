@@ -52,6 +52,28 @@ function App() {
       <button onClick={logout}>
         Sign out
       </button>
+      <div>
+        {/* Send post request to /api/v1/auth with token */}
+        <button onClick={async () => {
+          const token = await instance.acquireTokenSilent({
+            ...loginRequest,
+            account: accounts[0]
+          });
+          if (token) {
+            await fetch("http://localhost:8000/api/v1/auth", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                token: token.accessToken
+              })
+            });
+          }
+        }}>
+          DEBUG: Send token to backend
+        </button>
+      </div>
     </div>
   );
 }
