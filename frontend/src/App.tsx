@@ -1,73 +1,81 @@
-import { useState } from 'react'
-import './App.css'
-import CsvUpload from './CsvUpload'
-import SpendingForm from './SpendingForm'
+import {
+  useMsal,
+  useIsAuthenticated
+} from "@azure/msal-react";
+
+import { loginRequest } from "./authConfig";
 
 function App() {
-  const [month, setMonth] = useState('')
-  const [mode, setMode] = useState<'manual' | 'csv'>('manual')
+  const { instance, accounts } = useMsal();
+
+  const isAuthenticated = useIsAuthenticated();
+
+  const login = () => {
+    instance.loginRedirect(loginRequest);
+  };
+
+  const logout = () => {
+    instance.logoutRedirect();
+  };
+
+  if (!isAuthenticated) { // TODO: Create login page with redirect to Microsoft login
+    return (
+      <button onClick={login}>
+        Sign in with Microsoft
+      </button>
+    );
+  }
 
   return (
-    <main className="spending-page">
-      <header>
-        <p className="eyebrow">Carbon & Savings Advisor</p>
-        <h1>Monthly spending</h1>
-        <p className="intro">
-          Enter your monthly totals to start understanding your carbon impact.
+    <div>
+        <h1>Welcome</h1>
+
+        <p>
+            Signed in as: {accounts[0]?.username}<br/>
         </p>
-      </header>
-
-      <section className="spending-card" aria-labelledby="form-heading">
-        <div className="mode-switch" role="group" aria-label="Spending entry method">
-          <button
-            type="button"
-            className="mode-button"
-            aria-pressed={mode === 'manual'}
-            onClick={() => setMode('manual')}
-          >
-            Manual entry
-          </button>
-          <button
-            type="button"
-            className="mode-button"
-            aria-pressed={mode === 'csv'}
-            onClick={() => setMode('csv')}
-          >
-            Upload CSV
-          </button>
-        </div>
-
-        <h2 id="form-heading">
-          {mode === 'manual' ? 'Enter spending manually' : 'Upload a CSV file'}
-        </h2>
-        <p id="spending-help" className="help-text">
-          {mode === 'manual'
-            ? 'All amounts are in pounds (£). Enter 0 if you spent nothing in a category.'
-            : 'Choose the month that this CSV would apply to.'}
+        <h3>Account Information</h3> {/* DEBUG */}
+        <p>
+            homeAccountId: {accounts[0]?.homeAccountId}<br/>
+            environment: {accounts[0]?.environment}<br/>
+            tenantId: {accounts[0]?.tenantId}<br/>
+            username: {accounts[0]?.username}<br/>
+            localAccountId: {accounts[0]?.localAccountId}<br/>
+            name: {accounts[0]?.name}<br/>
+            authorityType: {accounts[0]?.authorityType}<br/>
         </p>
 
-        <div className="field">
-          <label htmlFor="month">Spending month</label>
-          <input
-            id="month"
-            name="month"
-            type="month"
-            form="manual-spending-form"
-            value={month}
-            onChange={(event) => setMonth(event.target.value)}
-            required
-          />
-        </div>
+        <h4>ID Token Claims</h4> {/* DEBUG */}
+        <pre>
+            {JSON.stringify(accounts[0]?.idTokenClaims, null, 4)}
+        </pre>
 
-        <div hidden={mode !== 'manual'}>
-          <SpendingForm month={month} />
-        </div>
-        <div hidden={mode !== 'csv'}>
-          <CsvUpload month={month} />
-        </div>
-      </section>
-    </main>
-  )
+      <button onClick={logout}>
+        Sign out
+      </button>
+      <div>
+        {/* Send post request to /api/v1/auth with token */}
+        <button onClick={async () => {
+          const token = await instance.acquireTokenSilent({
+            ...loginRequest,
+            account: accounts[0]
+          });
+          if (token) {
+            await fetch("http://localhost:8000/api/v1/auth", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                token: token.accessToken
+              })
+            });
+          }
+        }}>
+          DEBUG: Send token to backend
+        </button>
+      </div>
+    </div>
+  );
 }
 
-export default App
+export default App;

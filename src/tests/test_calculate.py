@@ -29,7 +29,7 @@ def test_happy_path():
     ]
   
     test_payload = {"spending": test_rows}
-    response = client.post("/v1/calculate", json=test_payload)
+    response = client.post("/api/v1/calculate", json=test_payload)
     respond = response.json()
 
     assert response.status_code == 200
