@@ -47,3 +47,20 @@ def test_category_endpoint_validation():
     assert response.json() == ['travel', 'food', 'utilities', 'shopping', 'housing', 'other']
 
     assert len(response.json()) == 6
+
+
+
+list_test_rows = [
+    pytest.param("travel", ['fueel', 'public transport', 'flights']),
+    pytest.param("food", ['groceries', 'eating out']),
+    pytest.param("utilities", ["electricity","gas", "water"]),
+    pytest.param("shopping", ["clothing", "electronics", "furniture and appliances"]),
+    pytest.param("housing", ["rent", "mortgage"]),
+    pytest.param("other", [])
+]
+
+@pytest.mark.parametrize("category, expected_list", list_test_rows, ids=['Travel', 'Food', 'Utilities', 'Shopping', 'Housing', 'Other'])
+def test_category_list_and_subcategory(category, expected_list):
+    response = client.get(f"/api/v1/categories/{category}")
+    assert response.status_code == 200
+    assert expected_list == response.json()
