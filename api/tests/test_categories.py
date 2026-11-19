@@ -1,9 +1,9 @@
 import pathlib
 import pytest
 from fastapi.testclient import TestClient
-from api.schemas.Category import Itemtype, Subcategories_by_type
+from src.schemas.Category import Itemtype, Subcategories_by_type
 
-from api.main import app
+from src.main import app
 
 client = TestClient(app)
 
