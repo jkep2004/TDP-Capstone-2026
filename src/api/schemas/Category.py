@@ -9,9 +9,11 @@ class Itemtype(Enum):
     Housing   = 'housing'
     Other     = 'other'
 
-   # TODO: implementation for subcategories are being done via relational database parent and foreign key relationships. 
-   # This is a placeholder for future implementation if it is neccessary to have a subcategory enum.
-
+    def allowed_subcategory(self, subcategory):
+        if subcategory in Subcategories_by_type[self]:
+                return True
+        else:
+            return False
 
 Subcategories_by_type = MappingProxyType({  
     Itemtype.Food:      ("groceries", "eating out"),
@@ -23,10 +25,7 @@ Subcategories_by_type = MappingProxyType({
     )
 
 
-def get_subcategory(key, value):
-    for key in Subcategories_by_type:
-        if key in Subcategories_by_type:
-            
+
 
 # TODO: Implement a route to get all categories
 # @route.get("/category")

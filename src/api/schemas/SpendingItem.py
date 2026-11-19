@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from ..schemas.Category import Itemtype
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 
 class SpendingItem(BaseModel, extra="forbid"):
     CustomerID: int = Field(gt=0)
@@ -32,3 +32,11 @@ class SpendingItem(BaseModel, extra="forbid"):
                 return None
             return raw_input
         raise ValueError("Subcategory must be a text string")
+    
+    @model_validator(mode = 'after')
+    def category_to_subcategory(self):
+        if self.subcategory is None:
+            return self
+        if self.category.allowed_subcategory(self.subcategory) == False:
+            raise ValueError("Subcategory must be one of the valid subcategories for this category")
+        return self
