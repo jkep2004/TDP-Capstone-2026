@@ -69,6 +69,8 @@ function App() {
                 token: token.accessToken
               })
             });
+            // DEBUG
+            console.log("Token sent to backend:", token.accessToken);
           }
         }}>
           DEBUG: Send token to backend

@@ -74,9 +74,9 @@ async def favicon():
     return FileResponse(STATIC_DIR / "img" / "favicon.ico")
 
 router = APIRouter()
-app.include_router(health.router, prefix="/api/v1/", tags=["Health"])
-app.include_router(calculate.router, prefix="/api/v1/", tags=["Calculate"])
-app.include_router(categories.router, prefix="/api/v1/", tags=["Categories"])
+app.include_router(health.router, prefix="/api/v1", tags=["Health"])
+app.include_router(calculate.router, prefix="/api/v1", tags=["Calculate"])
+app.include_router(categories.router, prefix="/api/v1", tags=["Categories"])
 app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
 
 @app.get("/api/user") # DEBUG
