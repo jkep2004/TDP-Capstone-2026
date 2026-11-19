@@ -2,7 +2,9 @@ from fastapi import APIRouter, HTTPException
 
 from ..schemas.Category import Itemtype, get_subcategory
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/categories"
+)
 
 @router.get(
     "/",

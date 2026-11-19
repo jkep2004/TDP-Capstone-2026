@@ -2,7 +2,9 @@ from fastapi import APIRouter
 
 from ..schemas.CalculateRequest import CalculateRequest
 
-router = APIRouter(prefix="/calculate")
+router = APIRouter(
+    prefix="/calculate"
+)
 
 @router.post(
     "/",
