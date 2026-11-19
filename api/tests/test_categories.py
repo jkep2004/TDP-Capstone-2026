@@ -36,3 +36,14 @@ def test_category_validation():
     for i in myset.values():
         count_of_subcategories += len(i)
     assert count_of_subcategories == 13
+
+
+def test_category_endpoint_validation():
+    response = client.get("/api/v1/categories/")
+    assert response.status_code == 200
+
+    my_values = [i.value for i in Itemtype]
+    assert response.json() == my_values
+    assert response.json() == ['travel', 'food', 'utilities', 'shopping', 'housing', 'other']
+
+    assert len(response.json()) == 6
