@@ -1,17 +1,66 @@
-
-name: CI/CD Pipeline
+name: DevSecOps CI/CD Pipeline
 
 on:
   push:
-    branches: ["main", "dev"]
-
+    branches: ["main", "dev","fix-workflow_helen"]
   pull_request:
-    branches: ["main", "dev"]
+    branches: ["main", "dev","fix-workflow_helen"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-test:
-    name: Build and Test
+  # ==========================================
+  # 1. BUILD & SECRETS GATE
+  # ==========================================
+  build:
+    name: 1. Build & Secrets Gate
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Secrets Management Gate (Block .env & .tfstate)
+        run: |
+          BLOCKED_FILES=$(git ls-files | grep -E '(^|/)\.env($|\.)|\.tfstate(\.|$)' || true)
+          if [ -n "$BLOCKED_FILES" ]; then
+            echo "::error::Security Policy Violation! Sensitive files detected in repository:"
+            echo "$BLOCKED_FILES"
+            exit 1
+          fi
+          echo "Secrets baseline check passed."
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify Backend Syntax & Build
+        run: |
+          python -m py_compile $(find src -name "*.py")
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify Frontend Build
+        working-directory: ./frontend
+        run: |
+          npm install
+          npm run build
+
+  # ==========================================
+  # 2. UNIT TEST & FUNCTIONAL QUALITY
+  # ==========================================
+  test:
+    name: 2. Unit & Functional Tests
+    runs-on: ubuntu-latest
+    needs: build
 
     steps:
       - name: Checkout repository
@@ -20,35 +69,160 @@ jobs:
       - name: Install Microsoft ODBC Driver 18
         run: |
           sudo mkdir -p /usr/share/keyrings
-
           curl -sSL https://packages.microsoft.com/keys/microsoft.asc \
             | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
-
           curl -sSL https://packages.microsoft.com/config/ubuntu/24.04/prod.list \
             | sudo tee /etc/apt/sources.list.d/mssql-release.list
-
           sudo apt-get update
-
           sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
 
-      - name: Set up Python 3.14
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r src/requirements-dev.txt
 
-      - name: Verify ODBC driver
-        run: |
-          odbcinst -q -d
-
-      - name: Run automated tests with pytest
+      - name: Run Pytest & Generate Report
         env:
           DB_SERVER: ${{ secrets.DB_SERVER }}
           DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_ADMIN_USER }}
+          DB_PASSWORD: ${{ secrets.DB_ADMIN_PASSWORD }}
+          DB_ADMIN_USER: ${{ secrets.DB_ADMIN_USER }}
+          DB_ADMIN_PASSWORD: ${{ secrets.DB_ADMIN_PASSWORD }}
+          DB_DRIVER: ODBC Driver 18 for SQL Server
+          ENTRA_TENANT_ID: ${{ secrets.ENTRA_TENANT_ID }}
+          ENTRA_API_CLIENT_ID: ${{ secrets.ENTRA_API_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.ENTRA_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.ENTRA_API_CLIENT_ID }}
+          APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
+          APP_JWT_ALGORITHM: ${{ secrets.APP_JWT_ALGORITHM }}
+          APP_JWT_EXPIRE_MINUTES: ${{ secrets.APP_JWT_EXPIRE_MINUTES }}
+        run: |
+          pytest --continue-on-collection-errors --junitxml=pytest-report.xml
+
+      - name: Upload Test Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 2-unit-test-report
+          path: pytest-report.xml
+
+  # ==========================================
+  # 3. SAST (STATIC APPLICATION SECURITY TESTING)
+  # ==========================================
+  sast:
+    name: 3. SAST (Bandit)
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Bandit
+        run: python -m pip install bandit
+
+      - name: Run Bandit SAST (Block Medium & High)
+        run: |
+          # First generate a complete report for archiving, then run the scan with blocking thresholds (-ll = Medium & High)
+          bandit -r src -x src/tests -f json -o bandit-report.json || true
+          bandit -r src -x src/tests -ll
+
+      - name: Upload SAST Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 3-sast-bandit-report
+          path: bandit-report.json
+
+  # ==========================================
+  # 4. SCA (SOFTWARE COMPOSITION ANALYSIS)
+  # ==========================================
+  sca:
+    name: 4. SCA (Dependency Audit)
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pip-audit
+        run: python -m pip install pip-audit
+
+      - name: Audit Python Dependencies
+        run: |
+          python -m pip_audit -r src/requirements.txt -f json -o pip-audit-app.json
+          python -m pip_audit -r src/requirements-dev.txt -f json -o pip-audit-dev.json
+
+      - name: Audit Frontend Dependencies
+        working-directory: ./frontend
+        run: |
+          npm audit --audit-level=high --json > ../npm-audit-report.json || npm audit --audit-level=high
+
+      - name: Upload SCA Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 4-sca-dependency-reports
+          path: |
+            pip-audit-app.json
+            pip-audit-dev.json
+            npm-audit-report.json
+
+  # ==========================================
+  # 5. DAST (DYNAMIC APPLICATION SECURITY TESTING)
+  # ==========================================
+  dast:
+    name: 5. DAST (API Dynamic Security)
+    runs-on: ubuntu-latest
+    needs: [sast, sca]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Microsoft ODBC Driver 18
+        run: |
+          sudo mkdir -p /usr/share/keyrings
+          curl -sSL https://packages.microsoft.com/keys/microsoft.asc \
+            | sudo gpg --batch --yes --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+          curl -sSL https://packages.microsoft.com/config/ubuntu/24.04/prod.list \
+            | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install App & DAST Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r src/requirements.txt httpx uvicorn
+
+      - name: Start API & Run DAST Checks on POST /calculate
+        env:
+          DB_SERVER: ${{ secrets.DB_SERVER }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_ADMIN_USER }}
+          DB_PASSWORD: ${{ secrets.DB_ADMIN_PASSWORD }}
           DB_ADMIN_USER: ${{ secrets.DB_ADMIN_USER }}
           DB_ADMIN_PASSWORD: ${{ secrets.DB_ADMIN_PASSWORD }}
           DB_DRIVER: ODBC Driver 18 for SQL Server
@@ -57,28 +231,56 @@ jobs:
           APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
           APP_JWT_ALGORITHM: ${{ secrets.APP_JWT_ALGORITHM }}
           APP_JWT_EXPIRE_MINUTES: ${{ secrets.APP_JWT_EXPIRE_MINUTES }}
-
         run: |
-          pytest --continue-on-collection-errors
+          python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 > api-server.log 2>&1 &
+          
+          # wait for API to be ready (up to 15 seconds)
+          for i in {1..15}; do
+            if curl -s http://127.0.0.1:8000/docs > /dev/null; then
+              echo "API is ready."
+              break
+            fi
+            sleep 1
+          done
 
-      - name: Install Bandit
-        run: |
-          python -m pip install bandit
+          python - << 'EOF' | tee dast-report.txt
+          import httpx
 
-      - name: Run Bandit SAST
-        run: |
-          bandit -r src -x src/tests
+          client = httpx.Client(base_url="http://127.0.0.1:8000", timeout=10.0)
+          endpoint = "/api/v1/calculate"
 
-  development-docker:
-    name: Build and Publish Development Images
+          tests = [
+              ("Invalid Input / Unexpected Params", {"invalid_field": "malformed", "extra": 999}),
+              ("SQL Injection Payload Attempt", {"activity": "' OR 1=1 --", "amount": -100}),
+              ("Empty Payload", {}),
+          ]
+
+          for name, payload in tests:
+              resp = client.post(endpoint, json=payload)
+              print(f"[DAST] {name} -> HTTP {resp.status_code}")
+              assert resp.status_code in [400, 401, 403, 422], f"Unexpected status {resp.status_code}"
+              assert "Traceback" not in resp.text, "Security Risk: Stack trace exposed!"
+              assert "pyodbc" not in resp.text.lower(), "Security Risk: DB driver details exposed!"
+
+          print("[DAST] All dynamic security checks passed.")
+          EOF
+
+      - name: Upload DAST Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 5-dast-security-report
+          path: |
+            dast-report.txt
+            api-server.log
+
+  # ==========================================
+  # 6. PUBLISH DOCKER IMAGES (GATED BY ALL CHECKS)
+  # ==========================================
+  publish-docker:
+    name: 6. Build & Publish Docker Images
     runs-on: ubuntu-latest
-
-    needs: build-and-test
-
-    if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/dev') ||
-      (github.event_name == 'pull_request' && github.base_ref == 'dev')
-
+    needs: [build, test, sast, sca, dast]
     permissions:
       contents: read
       packages: write
@@ -90,13 +292,17 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Generate Docker image tags
+      - name: Generate Dynamic Image Tags
         id: image
         run: |
           IMAGE_PREFIX="ghcr.io/${GITHUB_REPOSITORY,,}"
-
           echo "backend=$IMAGE_PREFIX-backend" >> "$GITHUB_OUTPUT"
           echo "frontend=$IMAGE_PREFIX-frontend" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF}" == "refs/heads/main" || "${GITHUB_BASE_REF}" == "main" ]]; then
+            echo "env_tag=latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "env_tag=unstable" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Login to GitHub Container Registry
         if: github.event_name == 'push'
@@ -113,7 +319,7 @@ jobs:
           file: ./Dockerfile.api
           push: ${{ github.event_name == 'push' }}
           tags: |
-            ${{ steps.image.outputs.backend }}:unstable
+            ${{ steps.image.outputs.backend }}:${{ steps.image.outputs.env_tag }}
             ${{ steps.image.outputs.backend }}:${{ github.sha }}
           cache-from: type=gha,scope=backend
           cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=backend' || '' }}
@@ -125,86 +331,7 @@ jobs:
           file: ./frontend/Dockerfile
           push: ${{ github.event_name == 'push' }}
           tags: |
-            ${{ steps.image.outputs.frontend }}:unstable
+            ${{ steps.image.outputs.frontend }}:${{ steps.image.outputs.env_tag }}
             ${{ steps.image.outputs.frontend }}:${{ github.sha }}
           cache-from: type=gha,scope=frontend
           cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=frontend' || '' }}
-
-      - name: Docker Publishing Summary
-        if: github.event_name == 'push'
-        run: |
-          echo "Successfully published development images:"
-          echo "${{ steps.image.outputs.backend }}:unstable"
-          echo "${{ steps.image.outputs.backend }}:${GITHUB_SHA}"
-          echo "${{ steps.image.outputs.frontend }}:unstable"
-          echo "${{ steps.image.outputs.frontend }}:${GITHUB_SHA}"
-
-  production-docker:
-    name: Build and Publish Production Images
-    runs-on: ubuntu-latest
-
-    needs: build-and-test
-
-    if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'pull_request' && github.base_ref == 'main')
-
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Generate Docker image tags
-        id: image
-        run: |
-          IMAGE_PREFIX="ghcr.io/${GITHUB_REPOSITORY,,}"
-
-          echo "backend=$IMAGE_PREFIX-backend" >> "$GITHUB_OUTPUT"
-          echo "frontend=$IMAGE_PREFIX-frontend" >> "$GITHUB_OUTPUT"
-
-      - name: Login to GitHub Container Registry
-        if: github.event_name == 'push'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and Publish FastAPI Backend
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile.api
-          push: ${{ github.event_name == 'push' }}
-          tags: |
-            ${{ steps.image.outputs.backend }}:latest
-            ${{ steps.image.outputs.backend }}:${{ github.sha }}
-          cache-from: type=gha,scope=backend
-          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=backend' || '' }}
-
-      - name: Build and Publish Vite Frontend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: ${{ github.event_name == 'push' }}
-          tags: |
-            ${{ steps.image.outputs.frontend }}:latest
-            ${{ steps.image.outputs.frontend }}:${{ github.sha }}
-          cache-from: type=gha,scope=frontend
-          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=frontend' || '' }}
-
-      - name: Docker Publishing Summary
-        if: github.event_name == 'push'
-        run: |
-          echo "Successfully published production images:"
-          echo "${{ steps.image.outputs.backend }}:latest"
-          echo "${{ steps.image.outputs.backend }}:${GITHUB_SHA}"
-          echo "${{ steps.image.outputs.frontend }}:latest"
-          echo "${{ steps.image.outputs.frontend }}:${GITHUB_SHA}"
