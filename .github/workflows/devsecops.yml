@@ -41,7 +41,7 @@ jobs:
 
       - name: Verify Backend Syntax & Build
         run: |
-          python -m py_compile $(find src -name "*.py")
+          python -m py_compile $(find api -name "*.py")
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
@@ -84,7 +84,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r src/requirements-dev.txt
+          pip install -r api/requirements-dev.txt
 
       # login to Azure
       - name: Azure Login
@@ -167,8 +167,8 @@ jobs:
       - name: Run Bandit SAST (Block Medium & High)
         run: |
           # First generate a complete report for archiving, then run the scan with blocking thresholds (-ll = Medium & High)
-          bandit -r src -x src/tests -f json -o bandit-report.json || true
-          bandit -r src -x src/tests -ll
+          bandit -r api -x api/tests -f json -o bandit-report.json || true
+          bandit -r api -x api/tests -ll
 
       - name: Upload SAST Evidence
         if: always()
@@ -199,8 +199,8 @@ jobs:
 
       - name: Audit Python Dependencies
         run: |
-          python -m pip_audit -r src/requirements.txt -f json -o pip-audit-app.json
-          python -m pip_audit -r src/requirements-dev.txt -f json -o pip-audit-dev.json
+          python -m pip_audit -r api/requirements.txt -f json -o pip-audit-app.json
+          python -m pip_audit -r api/requirements-dev.txt -f json -o pip-audit-dev.json
 
       - name: Audit Frontend Dependencies
         working-directory: ./frontend
@@ -247,7 +247,7 @@ jobs:
       - name: Install App & DAST Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r src/requirements.txt httpx uvicorn
+          pip install -r api/requirements.txt httpx uvicorn
 
       - name: Start API & Run DAST Checks on POST /calculate
         env:
@@ -264,7 +264,7 @@ jobs:
           APP_JWT_ALGORITHM: ${{ secrets.APP_JWT_ALGORITHM }}
           APP_JWT_EXPIRE_MINUTES: ${{ secrets.APP_JWT_EXPIRE_MINUTES }}
         run: |
-          python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 > api-server.log 2>&1 &
+          python -m uvicorn src.main:app --app-dir api --host 127.0.0.1 --port 8000 > api-server.log 2>&1 &
           
           # wait for API to be ready (up to 15 seconds)
           for i in {1..15}; do
