@@ -20,7 +20,7 @@ test_rows = [
 @pytest.mark.parametrize(
     "payload, expected_status", test_rows, ids= ["Travel-Flights", "food-flights", "other-something", "other-None"])
 def test_input_validation(payload, expected_status):
-    response = client.post("/v1/calculate", json=payload)
+    response = client.post("/api/v1/calculate", json=payload)
     response_data = response.json()
     assert expected_status == response.status_code
     
