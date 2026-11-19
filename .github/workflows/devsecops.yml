@@ -2,9 +2,9 @@ name: DevSecOps CI/CD Pipeline
 
 on:
   push:
-    branches: ["main", "dev","fix-workflow_helen"]
+    branches: ["main", "dev","feature-firewall"]
   pull_request:
-    branches: ["main", "dev","fix-workflow_helen"]
+    branches: ["main", "dev","feature-firewall"]
   workflow_dispatch:
 
 permissions:
@@ -86,6 +86,29 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r src/requirements-dev.txt
 
+      # login to Azure
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIAL }}
+
+      # dynamically open Azure SQL Firewall for the current Runner's IP
+      - name: Open Azure SQL Firewall
+        run: |
+          RUNNER_IP=$(curl -sf https://api.ipify.org || curl -sf https://ifconfig.me)
+          RULE_NAME="gh-actions-${{ github.run_id }}-${{ github.run_attempt }}"
+          echo "FIREWALL_RULE_NAME=$RULE_NAME" >> $GITHUB_ENV
+
+          az sql server firewall-rule create \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --server "${{ secrets.AZURE_SQL_SERVER_NAME }}" \
+            --name "$RULE_NAME" \
+            --start-ip-address "$RUNNER_IP" \
+            --end-ip-address "$RUNNER_IP"
+
+          # wait a few seconds to ensure the Azure firewall rule takes effect
+          sleep 10    
+
       - name: Run Pytest & Generate Report
         env:
           DB_SERVER: ${{ secrets.DB_SERVER }}
@@ -104,6 +127,15 @@ jobs:
           APP_JWT_EXPIRE_MINUTES: ${{ secrets.APP_JWT_EXPIRE_MINUTES }}
         run: |
           pytest --continue-on-collection-errors --junitxml=pytest-report.xml
+
+      # close Azure SQL Firewall regardless of test outcome
+      - name: Close Azure SQL Firewall
+        if: always() && env.FIREWALL_RULE_NAME != ''
+        run: |
+          az sql server firewall-rule delete \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --server "${{ secrets.AZURE_SQL_SERVER_NAME }}" \
+            --name "${{ env.FIREWALL_RULE_NAME }}"
 
       - name: Upload Test Evidence
         if: always()
