@@ -23,20 +23,5 @@ Subcategories_by_type = MappingProxyType({
     )
 
 
-def get_subcategory(key, value):
-    for key in Subcategories_by_type:
-        if key in Subcategories_by_type:
-            
-
-# TODO: Implement a route to get all categories
-# @route.get("/category")
-# def get_categories(category: Itemtype):
-#      return [c for c in Itemtype if c.value.lower() == category.value.lower()]
-
-
-
-
-
-
-
-
+def get_subcategory(key):
+    return Subcategories_by_type.get(key, ())
