@@ -1,9 +1,9 @@
 import pathlib
 import pytest
 from fastapi.testclient import TestClient
-from api.schemas.Category import Itemtype, Subcategories_by_type
+from src.schemas.Category import Itemtype, Subcategories_by_type
 
-from api.main import app
+from src.main import app
 
 client = TestClient(app)
 
@@ -15,7 +15,7 @@ test_rows = [
      pytest.param({"spending" : [{"CustomerID": 1,  "category": "other",     "subcategory": None,                       "amount": 2132,  "week": 3}]}, 200),
      pytest.param({"spending" : [{"CustomerID": 6,  "category": "travel",     "subcategory": None,                      "amount": 2132,  "week": 3}]}, 200),
      pytest.param({"spending" : [{"CustomerID": 7,  "category": "travel",     "subcategory": "public transport",        "amount": 2132,  "week": 3}]}, 200),
-     pytest.param({"spending" : [{"CustomerID": 8,  "category": "travel",     "subcategory": "public  transport",       "amount": 2132,  "week": 3}]}, 200),
+     pytest.param({"spending" : [{"CustomerID": 8,  "category": "travel",     "subcategory": "public  transport",       "amount": 2132,  "week": 3}]}, 422),
      pytest.param({"spending" : [{"CustomerID": 1,  "category": "travel",     "subcategory": "FLIGHTS",                 "amount": 2132,  "week": 3}]}, 200)
 
 
@@ -23,9 +23,9 @@ test_rows = [
 
 
 @pytest.mark.parametrize(
-    "payload, expected_status", test_rows, ids= ["Travel-Flights", "food-flights", "other-something", "other-None", "Travel-None" ,"Travel-public transport", "Travel-public  transport", "Travel-Flights"])
+    "payload, expected_status", test_rows, ids= ["Travel-Flights", "food-flights", "other-something", "other-None", "Travel-None" ,"Travel-public transport", "Travel-public  transport", "Travel-FLIGHTS"])
 def test_input_validation(payload, expected_status):
-    response = client.post("/v1/calculate", json=payload)
+    response = client.post("/api/v1/calculate", json=payload)
     response_data = response.json()
     assert expected_status == response.status_code
     

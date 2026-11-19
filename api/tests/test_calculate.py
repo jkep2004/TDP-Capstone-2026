@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-from api.main import app
+from src.main import app
 
 client = TestClient(app)
 
@@ -17,10 +17,6 @@ with open(CSV_PATH, "r") as file:
         dict(zip(sample_csv_headers, line.split(","))) for line in sample_csv_lines[1:]
     ]
 
-# =====================================================================
-# =====================================================================
-
-
 def test_happy_path():
     test_row = sample_csv_dict[1]
     test_rows = [
@@ -30,7 +26,7 @@ def test_happy_path():
     ]
   
     test_payload = {"spending": test_rows}
-    response = client.post("/v1/calculate", json=test_payload)
+    response = client.post("/api/v1/calculate", json=test_payload)
     respond = response.json()
 
     assert response.status_code == 200
@@ -54,7 +50,7 @@ def test_subcategory_validation():
     ]
   
     test_payload = {"spending": test_rows}
-    response = client.post("/v1/calculate", json=test_payload)
+    response = client.post("/api/v1/calculate", json=test_payload)
     respond = response.json()
 
     assert response.status_code == 200
@@ -81,14 +77,14 @@ broken_json_tester = "CusotmerID: 23, category: travel,, amount: 150, week: 2"
 
 @pytest.mark.parametrize("bad_payload", testers)
 def test_input_validation(bad_payload):
-    response = client.post("/v1/calculate", json=bad_payload)
+    response = client.post("/api/v1/calculate", json=bad_payload)
     response_data = response.json()
     print(response_data)
     assert response.status_code == 422
 
 
 def test_json_response():
-    response = client.post("/v1/calculate", content=broken_json_tester, headers={"Content-Type": "application/json"})
+    response = client.post("/api/v1/calculate", content=broken_json_tester, headers={"Content-Type": "application/json"})
     response_data = response.json()
     print(response_data)
     assert response.status_code == 422

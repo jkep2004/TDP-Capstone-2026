@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from pydantic import BaseModel, Field
-from .Routers import calculate, health
+from .Routers import calculate, health, categories
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -22,6 +22,12 @@ tags_metadata = [
         "name": "Calculate",
         "description": """
         Provides carbon footprint calculations.
+        """,
+    },
+    {
+        "name": "Categories",
+        "description": """
+        Provides spending categories and subcategories.
         """,
     },
 ]
@@ -53,5 +59,6 @@ async def favicon():
     return FileResponse(STATIC_DIR / "img" / "favicon.ico")
 
 router = APIRouter()
-app.include_router(health.router, prefix="/v1/health", tags=["Health"])
-app.include_router(calculate.router, prefix="/v1/calculate", tags=["Calculate"])
+app.include_router(health.router, prefix="/api/v1/health", tags=["Health"])
+app.include_router(calculate.router, prefix="/api/v1/calculate", tags=["Calculate"])
+app.include_router(categories.router, prefix="/api/v1/categories", tags=["Categories"])
