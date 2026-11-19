@@ -24,4 +24,4 @@ Subcategories_by_type = MappingProxyType({
 
 
 def get_subcategory(key):
-    return Subcategories_by_type.get(key, ())
+    return Subcategories_by_type.get(key)
