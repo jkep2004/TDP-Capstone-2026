@@ -380,3 +380,13 @@ vite.config.ts.timestamp-*
 .nx/cache
 .nx/workspace-data
 .nx/migrate-runs
+
+
+# ignore terraform state files
+infra/terraform/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+*.tfstate
+*.tfstate.*
+**/.terraform/
+**/*.tfvars

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+BLOCKED_FILES=$(git diff --cached --name-only | grep -E '(^|/)\.env($|\.)')
+
+if [ -n "$BLOCKED_FILES" ]; then
+    echo "ERROR: Security policy violation!"
+    echo "The following environment files cannot be uploaded:"
+    echo "$BLOCKED_FILES"
+    echo ""
+    echo "Remove these files from the Git staging area:"
+    echo "git rm --cached <filename>"
+    exit 1
+fi
+
+echo "Security check passed: No .env files detected."
+exit 0

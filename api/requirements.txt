@@ -1,5 +1,8 @@
 # NW TDP 2026 v2
-fastapi==0.115.6
+# fastapi==0.115.6
+fastapi==0.165.0 # upgrade the version of fastapi to 0.165.0 to fix the issue after SCA scan
 uvicorn[standard]==0.34.0
 sqlalchemy==2.1.8
 pyodbc==5.5.0
+pyjwt==2.15.1
+cryptography==50.0.2

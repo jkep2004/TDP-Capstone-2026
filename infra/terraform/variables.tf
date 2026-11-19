@@ -1,0 +1,53 @@
+variable "project_name" {
+  description = "Project name used as a prefix for all Azure resources"
+  type        = string
+  default     = "tdp2026-carbon-team3"
+}
+
+variable "environment" {
+  description = "Deployment environment (dev, test, prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "location" {
+  description = "Azure region for resource deployment"
+  type        = string
+  default     = "uksouth"
+}
+
+variable "sql_admin_username" {
+  description = "Administrator username for Azure SQL Server"
+  type        = string
+  default     = "sqladminuser"
+}
+
+variable "sql_admin_password" {
+  description = "Administrator password for Azure SQL Server (must be passed via TF_VAR_sql_admin_password)"
+  type        = string
+  sensitive   = true
+}
+
+variable "client_ip_address" {
+  description = "Your local public IP address to allow running init_db.py against Azure SQL"
+  type        = string
+  default     = "0.0.0.0" # Will be overridden during deployment
+}
+
+variable "github_pat" {
+  type        = string
+  description = "GitHub Personal Access Token for GHCR container registry"
+  sensitive   = true
+}
+
+variable "TENANT_ID" {
+  description = "Azure Tenant ID for authentication"
+  type        = string
+  default     = "c2f2b391-a7cb-4676-b83c-59b507c6f6b7" # Replace with your actual tenant ID
+}
+
+variable "CLIENT_ID" {
+  description = "Azure Client ID for authentication"
+  type        = string
+  default     = "38344a61-f922-47e6-b292-c374f1ea7076" 
+  }
