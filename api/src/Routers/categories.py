@@ -38,7 +38,7 @@ def get_categories():
 def get_subcategories(category: str):
 
     try:
-        category_enum = Itemtype(category)
+        category_enum = Itemtype(category.lower())
     except ValueError:
         raise HTTPException(status_code=404, detail="Category not found")
 
