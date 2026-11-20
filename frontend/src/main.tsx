@@ -7,20 +7,10 @@ import './index.css'
 import App from './App.tsx';
 import { msalInstance } from "./msal";
 
-async function bootstrap() {
-  await msalInstance.initialize();
-
-  await msalInstance.handleRedirectPromise();
-
-  createRoot(
-    document.getElementById("root")!
-  ).render(
-    <StrictMode>
-      <MsalProvider instance={msalInstance}>
-        <App />
-      </MsalProvider>
-    </StrictMode>
-  );
-}
-
-bootstrap();
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <MsalProvider instance={msalInstance}>
+      <App />
+    </MsalProvider>
+  </StrictMode>
+);
