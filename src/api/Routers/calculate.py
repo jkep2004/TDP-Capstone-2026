@@ -2,12 +2,37 @@ from fastapi import APIRouter
 
 from ..schemas.calculateRequest import CalculateRequest
 
-router = APIRouter()
+router = APIRouter(prefix="/calculate")
 
+@router.post(
+    "/",
+    summary="Calculate carbon footprint",
+    description="""
+    Calculates the carbon footprint based on the provided spending data.
+    """,
+    # response_model=CalculateResponse,
+    responses={
+        200: {
+            "description": "Successful Response",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "success",
+                        "totalCarbonKg": 0,
+                        "breakdown": [
+                            {"category": "food", "amount": 100, "carbonKg": 0},
+                            {"category": "travel", "amount": 200, "carbonKg": 0}
+                        ],
+                        "recommendations": []
+                    },
+                }
+            }
+        },
+    },
+)
 
-@router.post("")
 def calculate(request: CalculateRequest):
-    # Placeholder only: replace with database-backed emissions factors in Sprint 2.
+    # TODO: replace with database-backed emissions factors in Sprint 2.
     breakdown = [
         {"category": item.category, "amount": item.amount, "carbonKg": 0}
         for item in request.spending

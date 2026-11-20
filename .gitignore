@@ -221,3 +221,13 @@ __marimo__/
 
 
 .github/instructions
+
+
+# ignore terraform state files
+infra/terraform/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+*.tfstate
+*.tfstate.*
+**/.terraform/
+**/*.tfvars

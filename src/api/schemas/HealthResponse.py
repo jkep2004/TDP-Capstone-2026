@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
-class SpendingItem(BaseModel):
-    CustomerID: int = Field(gt=0)
-    category: str = Field(min_length=1)
-    amount: float = Field(ge=0)
+# TODO: Does this need version included?
+
+class HealthResponse(BaseModel):
+    status: str = Field(..., description="Current API status")
+    version: str = Field(..., description="Current API version")
