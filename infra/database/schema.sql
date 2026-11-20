@@ -57,10 +57,11 @@ CREATE TABLE dbo.Assumptions (
 );
 GO
 
+/* CustomerId = the Microsoft Entra user ID (uid) of the signed-in user. */
 CREATE TABLE dbo.Customers (
-    CustomerId   INT          PRIMARY KEY,
-    PersonaType  NVARCHAR(50) NULL,
-    DataSource   NVARCHAR(100) NOT NULL
+    CustomerId   UNIQUEIDENTIFIER PRIMARY KEY,
+    PersonaType  NVARCHAR(50)     NULL,
+    DataSource   NVARCHAR(100)    NOT NULL
 );
 GO
 
@@ -71,7 +72,7 @@ GO
                 NULL for a manual whole-month total. */
 CREATE TABLE dbo.Spending (
     SpendingId  INT IDENTITY(1,1) PRIMARY KEY,
-    CustomerId  INT           NOT NULL
+    CustomerId  UNIQUEIDENTIFIER NOT NULL
         CONSTRAINT FK_Spending_Customer REFERENCES dbo.Customers(CustomerId),
     CategoryId  INT           NOT NULL
         CONSTRAINT FK_Spending_Category REFERENCES dbo.Categories(CategoryId),
