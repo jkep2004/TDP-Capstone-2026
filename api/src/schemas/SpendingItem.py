@@ -1,11 +1,12 @@
 from sqlite3 import Date
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 from ..schemas.Category import Itemtype
 from pydantic import field_validator, model_validator
 
 class SpendingItem(BaseModel, extra="forbid"):
-    CustomerID: int = Field(gt=0)
+    CustomerID: UUID = Field(description="The unique identifier of the customer")
     category: Itemtype
     subcategory: str | None = Field(default=None, description="The subcategory of the spending category")
     amount: float = Field(ge=0)

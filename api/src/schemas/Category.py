@@ -21,9 +21,9 @@ class Itemtype(Enum):
         else:
             return False
         
-    def get_category_id(self, db: Session = Depends(get_db)):
+    def get_category_id(self, db: Session):
         try:
-            SQL_QUERY = f"SELECT CategoryId FROM dbo.Category WHERE CategoryName = '{self.value}'"
+            SQL_QUERY = f"SELECT CategoryId FROM dbo.Categories WHERE Name = '{self.value}'"
             result = db.execute(text(SQL_QUERY)).fetchone()
             if result is None:
                 raise ValueError(f"Category '{self.value}' not found in the database")

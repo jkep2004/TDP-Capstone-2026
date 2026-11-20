@@ -24,11 +24,13 @@ def create_spend_entry(
     # TODO: Validate spending item
 
     # Retrieve values
-    customer_id = user["customer_id"]
-    category_id = spend_data.category.get_category_id()
+    customer_id = user["user_id"]
+    category_id = spend_data.category.get_category_id(db)
     spend_month = spend_data.month
     week_number = spend_data.week
     amount_gbp = spend_data.amount
+    
+    print (f"Creating spend entry for customer_id: {customer_id}, category_id: {category_id}, spend_month: {spend_month}, week_number: {week_number}, amount_gbp: {amount_gbp}")
 
     # Insert into database
     query = text("""
@@ -36,7 +38,7 @@ def create_spend_entry(
             CustomerId,
             CategoryId,
             SpendMonth,
-            [Week Number],
+            WeekNumber,
             AmountGBP,
             CreatedAt
         )
@@ -67,8 +69,9 @@ def create_spend_entry(
 
         db.commit()
 
-    except SQLAlchemyError:
+    except SQLAlchemyError as e:
         db.rollback()
+        print("ERROR: ", e)
         raise HTTPException(
             status_code=500,
             detail="Failed to create spend entry"

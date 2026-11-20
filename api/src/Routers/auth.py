@@ -66,7 +66,6 @@ def authenticate(
     )
 
     user = {
-        "customer_id": f"{entra_user['tid']}|{entra_user['oid']}",
         "user_id": entra_user["oid"],
         "username": entra_user.get(
             "preferred_username"
@@ -80,26 +79,26 @@ def authenticate(
         user
     )
     
-    # try: # TODO: Fix
-    #     SQL_EXISTS = f"SELECT COUNT(*) FROM Customer WHERE CustomerId = '{user['customer_id']}'"
-    #     result = db.execute(text(SQL_EXISTS)).fetchone()
-    #     if result[0] == 0:
-    #         dataSource = "ENTRA"
-    #         SQL_INSERT = f"INSERT INTO Customer (CustomerId, DataSource) VALUES ('{user['customer_id']}', '{dataSource}')"
-    #         db.execute(text(SQL_INSERT))
-    #         db.commit()
+    try:
+        SQL_EXISTS = f"SELECT COUNT(*) FROM Customers WHERE CustomerId = '{user['user_id']}'"
+        result = db.execute(text(SQL_EXISTS)).fetchone()
+        if result[0] == 0:
+            dataSource = "ENTRA"
+            SQL_INSERT = f"INSERT INTO Customers (CustomerId, DataSource) VALUES ('{user['user_id']}', '{dataSource}')"
+            db.execute(text(SQL_INSERT))
+            db.commit()
             
-    # except SQLAlchemyError as e:
-    #     raise HTTPException(
-    #         status_code=500,
-    #         detail="Database error: {}".format(str(e))
-    #     )
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=500,
+            detail="Database error: {}".format(str(e))
+        )
 
-    # except Exception as e:
-    #     raise HTTPException(
-    #         status_code=500,
-    #         detail="Database connection error: {}".format(str(e))
-    #     )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail="Database connection error: {}".format(str(e))
+        )
 
     return {
         "access_token": access_token,
@@ -107,7 +106,6 @@ def authenticate(
         "expires_in": expires_in,
         "user": {
             "id": user["user_id"],
-            "customer_id": user["customer_id"],
             "email": user["username"],
             "name": user["name"],
             "roles": user["roles"]
