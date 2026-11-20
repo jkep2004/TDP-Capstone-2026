@@ -1,6 +1,8 @@
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+import jwt
 from pydantic import BaseModel, Field
+from sqlalchemy import text, exc as SQLAlchemyError
 
 from ..Core.auth import (
     validate_entra_token,
@@ -8,6 +10,7 @@ from ..Core.auth import (
 )
 from ..schemas.AuthRequest import AuthRequest
 from ..schemas.AuthResponse import AuthResponse
+from database.database import get_db
 
 router = APIRouter(
     prefix="/auth"
@@ -51,13 +54,18 @@ router = APIRouter(
         },
     },
 )
-def authenticate(request: AuthRequest):
+def authenticate(
+    request: AuthRequest,
+    db=Depends(get_db)
+    
+    ):
 
     entra_user = validate_entra_token(
         request.token
     )
 
     user = {
+        "customer_id": f"{entra_user['tid']}|{entra_user['oid']}",
         "user_id": entra_user["oid"],
         "username": entra_user.get(
             "preferred_username"
@@ -70,6 +78,27 @@ def authenticate(request: AuthRequest):
     access_token, expires_in = create_access_token(
         user
     )
+    
+    # try: # TODO: Fix
+    #     SQL_EXISTS = f"SELECT COUNT(*) FROM Customer WHERE CustomerId = '{user['customer_id']}'"
+    #     result = db.execute(text(SQL_EXISTS)).fetchone()
+    #     if result[0] == 0:
+    #         dataSource = "ENTRA"
+    #         SQL_INSERT = f"INSERT INTO Customer (CustomerId, DataSource) VALUES ('{user['customer_id']}', '{dataSource}')"
+    #         db.execute(text(SQL_INSERT))
+    #         db.commit()
+            
+    # except SQLAlchemyError as e:
+    #     raise HTTPException(
+    #         status_code=500,
+    #         detail="Database error: {}".format(str(e))
+    #     )
+
+    # except Exception as e:
+    #     raise HTTPException(
+    #         status_code=500,
+    #         detail="Database connection error: {}".format(str(e))
+    #     )
 
     return {
         "access_token": access_token,
@@ -77,6 +106,7 @@ def authenticate(request: AuthRequest):
         "expires_in": expires_in,
         "user": {
             "id": user["user_id"],
+            "customer_id": user["customer_id"],
             "email": user["username"],
             "name": user["name"],
             "roles": user["roles"]

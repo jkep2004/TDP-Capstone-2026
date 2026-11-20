@@ -1,3 +1,5 @@
+from sqlite3 import Date
+
 from pydantic import BaseModel, Field
 from ..schemas.Category import Itemtype
 from pydantic import field_validator, model_validator
@@ -7,9 +9,8 @@ class SpendingItem(BaseModel, extra="forbid"):
     category: Itemtype
     subcategory: str | None = Field(default=None, description="The subcategory of the spending category")
     amount: float = Field(ge=0)
+    month: Date = Field(description="First day of the month of the spending entry")
     week: int = Field(gt=0, le = 5, description="The week number of the month")
-
-    
     
     @field_validator("category", mode="before")
     @classmethod

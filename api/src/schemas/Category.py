@@ -1,5 +1,9 @@
 from enum import Enum
 from types import MappingProxyType
+from fastapi import Depends
+from sqlalchemy import text, exc as SQLAlchemyError
+
+from database.database import get_db
 
 class Itemtype(Enum):
     Travel    = 'travel'
@@ -14,6 +18,18 @@ class Itemtype(Enum):
                 return True
         else:
             return False
+        
+    def get_category_id(self, db=Depends(get_db)):
+        try:
+            SQL_QUERY = f"SELECT CategoryId FROM dbo.Category WHERE CategoryName = '{self.value}'"
+            result = db.execute(text(SQL_QUERY)).fetchone()
+            if result is None:
+                raise ValueError(f"Category '{self.value}' not found in the database")
+            return result[0]
+        except SQLAlchemyError as e:
+            raise ValueError(f"Database error occurred while retrieving category ID: {e}")
+        except Exception as e:
+            raise ValueError(f"Error retrieving category ID: {e}")
 
 Subcategories_by_type = MappingProxyType({  
     Itemtype.Food:      ("groceries", "eating out"),

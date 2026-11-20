@@ -2,10 +2,8 @@
 import os
 from dotenv import load_dotenv
 import jwt
-
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-
 from jwt import PyJWKClient
 
 from fastapi import (
@@ -18,6 +16,9 @@ from fastapi.security import (
     HTTPBearer,
     HTTPAuthorizationCredentials
 )
+from sqlalchemy import text, exc as SQLAlchemyError
+
+from database.database import get_db
 
 load_dotenv()
 
@@ -54,12 +55,6 @@ def validate_entra_token(token: str) -> dict:
         signing_key = jwks_client.get_signing_key_from_jwt(
             token
         )
-        
-        print("EXPECTED AUDIENCE:", repr(API_CLIENT_ID))
-        print("TOKEN AUDIENCE:", repr(jwt.decode(
-            token,
-            options={"verify_signature": False}
-        ).get("aud")))
 
         payload = jwt.decode(
             token,
@@ -145,11 +140,14 @@ def create_access_token(user: dict) -> tuple[str, int]:
     return token, APP_JWT_EXPIRE_MINUTES * 60
 
 def validate_app_token(
-    credentials: HTTPAuthorizationCredentials =
-        Depends(security)
+    credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
 
     try:
+        
+        header = jwt.get_unverified_header(
+            credentials.credentials
+        )
 
         payload = jwt.decode(
             credentials.credentials,
@@ -173,10 +171,12 @@ def validate_app_token(
 
         if payload.get("type") != "access":
             raise ValueError("Invalid token type")
-
+            
         return payload
 
-    except (jwt.PyJWTError, ValueError):
+    except (jwt.PyJWTError, ValueError) as e:
+        
+        print("ERROR: {}".format(str(e)))
 
         raise HTTPException(
             status_code=401,
@@ -188,6 +188,7 @@ def get_current_user(
 ):
 
     return {
+        "customer_id": f"{payload.get('tid')}|{payload.get('sub')}",
         "user_id": payload.get("sub"),
         "username": payload.get("username"),
         "name": payload.get("name"),
