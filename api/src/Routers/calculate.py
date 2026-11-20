@@ -12,7 +12,7 @@ router = APIRouter(
     description="""
     Calculates the carbon footprint based on the provided spending data.
     """,
-    # response_model=CalculateResponse,
+    response_model=calculateResponse,
     responses={
         200: {
             "description": "Successful Response",

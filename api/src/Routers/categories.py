@@ -18,7 +18,7 @@ router = APIRouter(
             "description": "Successful Response",
             "content": {
                 "application/json": {
-                    "example": ["food", "travel", "housing", "other"]
+                    "example": ["food", "travel", "utilities",   "shopping","housing", "other"]
                 }
             }
         },

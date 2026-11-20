@@ -51,7 +51,7 @@ def test_category_endpoint_validation():
 
 
 list_test_rows = [
-    pytest.param("travel", ['fueel', 'public transport', 'flights']),
+    pytest.param("travel", ['fuel', 'public transport', 'flights']),
     pytest.param("food", ['groceries', 'eating out']),
     pytest.param("utilities", ["electricity","gas", "water"]),
     pytest.param("shopping", ["clothing", "electronics", "furniture and appliances"]),
