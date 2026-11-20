@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 import jwt
 from pydantic import BaseModel, Field
 from sqlalchemy import text, exc as SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from ..Core.auth import (
     validate_entra_token,
@@ -56,9 +57,8 @@ router = APIRouter(
 )
 def authenticate(
     request: AuthRequest,
-    db=Depends(get_db)
-    
-    ):
+    db: Session = Depends(get_db)
+):
 
     entra_user = validate_entra_token(
         request.token

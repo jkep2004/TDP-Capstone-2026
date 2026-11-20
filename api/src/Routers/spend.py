@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text, exc as SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from database.database import get_db
 from ..schemas.SpendingItem import SpendingItem
@@ -16,30 +17,13 @@ router = APIRouter(
 )
 def create_spend_entry(
     spend_data: SpendingItem,
-    db=Depends(get_db),
+    db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    # Validate category
-    if not spend_data.category.is_valid():
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid category"
-        )
-
-    # Validate subcategory
-    if (
-        spend_data.subcategory
-        and not spend_data.category.allowed_subcategory(
-            spend_data.subcategory
-        )
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid subcategory for the given category"
-        )
+    # TODO: Validate spending item
 
     # Retrieve values
-    customer_id = user.customer_id
+    customer_id = user["customer_id"]
     category_id = spend_data.category.get_category_id()
     spend_month = spend_data.month
     week_number = spend_data.week

@@ -2,6 +2,7 @@ from enum import Enum
 from types import MappingProxyType
 from fastapi import Depends
 from sqlalchemy import text, exc as SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from database.database import get_db
 
@@ -19,7 +20,7 @@ class Itemtype(Enum):
         else:
             return False
         
-    def get_category_id(self, db=Depends(get_db)):
+    def get_category_id(self, db: Session = Depends(get_db)):
         try:
             SQL_QUERY = f"SELECT CategoryId FROM dbo.Category WHERE CategoryName = '{self.value}'"
             result = db.execute(text(SQL_QUERY)).fetchone()
