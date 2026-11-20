@@ -1,7 +1,8 @@
 from enum import Enum
 from types import MappingProxyType
 from fastapi import Depends
-from sqlalchemy import text, exc as SQLAlchemyError
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from database.database import get_db

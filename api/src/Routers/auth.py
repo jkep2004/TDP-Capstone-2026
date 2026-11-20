@@ -2,7 +2,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 import jwt
 from pydantic import BaseModel, Field
-from sqlalchemy import text, exc as SQLAlchemyError
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ..Core.auth import (

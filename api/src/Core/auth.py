@@ -16,7 +16,8 @@ from fastapi.security import (
     HTTPBearer,
     HTTPAuthorizationCredentials
 )
-from sqlalchemy import text, exc as SQLAlchemyError
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from database.database import get_db
 
