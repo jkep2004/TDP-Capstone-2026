@@ -13,7 +13,6 @@ router = APIRouter(
     prefix="/auth"
 )
 
-
 @router.post(
     "/",
     summary="Authenticate user",

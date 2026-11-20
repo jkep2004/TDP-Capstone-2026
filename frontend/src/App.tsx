@@ -82,6 +82,28 @@ function App() {
         <span>
           Signed in as <strong>{accounts[0]?.username ?? 'Microsoft account'}</strong>
         </span>
+        {/* Send post request to /api/v1/auth with token */}
+        <button onClick={async () => {
+          const token = await instance.acquireTokenSilent({
+            ...loginRequest,
+            account: accounts[0]
+          });
+          if (token) {
+            await fetch("http://localhost:8000/api/v1/auth", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                token: token.accessToken
+              })
+            });
+            // DEBUG
+            console.log("Token sent to backend:", token.accessToken);
+          }
+        }}>
+          DEBUG: Send token to backend
+        </button>
         <button type="button" onClick={logout}>Sign out</button>
       </header>
       <SpendingPage />

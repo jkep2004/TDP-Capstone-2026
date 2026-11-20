@@ -1,5 +1,6 @@
 
 import os
+from dotenv import load_dotenv
 import jwt
 
 from datetime import datetime, timedelta, timezone
@@ -18,11 +19,13 @@ from fastapi.security import (
     HTTPAuthorizationCredentials
 )
 
-TENANT_ID = os.environ["ENTRA_TENANT_ID"]
+load_dotenv()
 
-API_CLIENT_ID = os.environ["ENTRA_API_CLIENT_ID"]
+TENANT_ID = os.getenv("ENTRA_TENANT_ID")
 
-APP_JWT_SECRET = os.environ["APP_JWT_SECRET"]
+API_CLIENT_ID = os.getenv("ENTRA_API_CLIENT_ID")
+
+APP_JWT_SECRET = os.getenv("APP_JWT_SECRET")
 
 APP_JWT_ALGORITHM = os.getenv(
     "APP_JWT_ALGORITHM", "HS256"
@@ -40,10 +43,6 @@ ENTRA_JWKS_URL = (
     f"{ENTRA_AUTHORITY}/discovery/v2.0/keys"
 )
 
-APP_JWT_ISSUER = "backend"
-
-APP_JWT_AUDIENCE = "TDP-Carbon-API"
-
 jwks_client = PyJWKClient(ENTRA_JWKS_URL)
 
 security = HTTPBearer()
@@ -55,6 +54,12 @@ def validate_entra_token(token: str) -> dict:
         signing_key = jwks_client.get_signing_key_from_jwt(
             token
         )
+        
+        print("EXPECTED AUDIENCE:", repr(API_CLIENT_ID))
+        print("TOKEN AUDIENCE:", repr(jwt.decode(
+            token,
+            options={"verify_signature": False}
+        ).get("aud")))
 
         payload = jwt.decode(
             token,
@@ -121,8 +126,8 @@ def create_access_token(user: dict) -> tuple[str, int]:
         "name": user.get("name"),
         "roles": user.get("roles", []),
 
-        "iss": APP_JWT_ISSUER,
-        "aud": APP_JWT_AUDIENCE,
+        "iss": TENANT_ID,
+        "aud": API_CLIENT_ID,
 
         "iat": now,
         "nbf": now,
@@ -150,8 +155,8 @@ def validate_app_token(
             credentials.credentials,
             APP_JWT_SECRET,
             algorithms=[APP_JWT_ALGORITHM],
-            audience=APP_JWT_AUDIENCE,
-            issuer=APP_JWT_ISSUER,
+            audience=API_CLIENT_ID,
+            issuer=TENANT_ID,
             options={
                 "require": [
                     "sub",

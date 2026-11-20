@@ -5,8 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from pydantic import BaseModel, Field
-
-from .Routers import calculate, health, auth
+from .Routers import auth, calculate, categories, health
 from .Core.auth import get_current_user
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,6 +24,12 @@ tags_metadata = [
         "name": "Calculate",
         "description": """
         Provides carbon footprint calculations.
+        """,
+    },
+    {
+        "name": "Categories",
+        "description": """
+        Provides spending categories and subcategories.
         """,
     },
 ]
@@ -71,6 +76,7 @@ async def favicon():
 router = APIRouter()
 app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 app.include_router(calculate.router, prefix="/api/v1", tags=["Calculate"])
+app.include_router(categories.router, prefix="/api/v1", tags=["Categories"])
 app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
 
 @app.get("/api/user") # DEBUG
