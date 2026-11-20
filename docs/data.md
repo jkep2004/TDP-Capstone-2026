@@ -21,7 +21,7 @@ No real customer data is used. All data is synthetic or test data.
 | `Categories` | Spending categories in two levels: main categories (`ParentCategoryId` empty) and sub-categories (`ParentCategoryId` = their main category). `IsCarbonTracked` = 0 for spend that is recorded but has no carbon (mortgage) |
 | `EmissionsFactors` | kgCO2e per £ for each category, with **Source, Version, EffectiveDate** |
 | `Assumptions` | Documented calculation rules (thresholds, weeks per month, reduction %) |
-| `Customers` | Test customers (IDs 1-4) |
+| `Customers` | One row per customer. `CustomerId` is the Microsoft Entra user ID (a UUID), filled in by the API at sign-in. The 4 test customers use fixed IDs `00000000-0000-0000-0000-000000000001` to `...004` |
 | `Spending` | One row per customer, category, month and week. `CategoryId` can be a main category or a sub-category. `SpendMonth` = month the user selects; `WeekNumber` = week 1-5 for CSV uploads, empty (NULL) for a manual whole-month total |
 | `RecommendationRules` | Monthly threshold, recommendation text and reduction % per **main** category |
 | `vw_CategoryHierarchy` (view) | Each category with its main category |
@@ -37,7 +37,7 @@ No real customer data is used. All data is synthetic or test data.
 | `EmissionsFactors` | 18 | One factor per category, except Mortgage (not carbon-tracked) |
 | `RecommendationRules` | 4 | Travel, Food, Utilities, Shopping |
 | `Assumptions` | 11 | Calculation rules (weeks per month, thresholds, reduction %) |
-| `Customers` | 4 | Test customers 1-4 |
+| `Customers` | 4 | Test customers 1-4 (fixed UUIDs ending in 1-4) |
 | `Spending` | 27 | Test data v1: 3 customers x 3 weeks x 3 main categories (0 if only `seed.sql` is run) |
 
 | Main category | Sub-categories | kgCO2e per £ (main) | Monthly threshold | Reduction % | Advice when over threshold |
