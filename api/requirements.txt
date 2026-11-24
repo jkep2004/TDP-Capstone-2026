@@ -6,3 +6,4 @@ sqlalchemy==2.1.8
 pyodbc==5.5.0
 pyjwt==2.15.1
 cryptography==50.0.2
+structlog==26.1.0

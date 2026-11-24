@@ -4,23 +4,32 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
+import structlog
+
+from .Core.logging import configure_logging
+configure_logging("ERROR") # TODO: Change to INFO or DEBUG in dev for more detailed logs
 
 from .Routers import auth, calculate, categories, health, spend
 from .Core.auth import get_current_user
 from .Core.config import check_env_variables
+from .Middleware.logging import RequestLoggingMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 STATIC_DIR = BASE_DIR / "static"
 
+logger = structlog.get_logger(__name__)
+logger.info("Starting API application", base_dir=str(BASE_DIR), static_dir=str(STATIC_DIR))
+
+logger.info("Checking required environment variables")
+
 try:
-    print("INFO: Checking required environment variables")
     check_env_variables()  # Check that all required environment variables are set
 except ValueError as e:
-    print(f"ERROR: {str(e)}")
+    logger.error(f"ERROR: {str(e)}")
     raise SystemExit(1)  # Exit the application if environment variables are missing
 else:
-    print("INFO: All required environment variables are set.")
+    logger.info("All required environment variables are set.")
 
 tags_metadata = [
     {
@@ -84,12 +93,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+logger.info("CORS middleware configured with allowed origins")
+app.add_middleware(RequestLoggingMiddleware)
+
 
 app.mount(
     "/static",
     StaticFiles(directory=STATIC_DIR),
     name="static"
 )
+logger.info("Static files mounted at /static")
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
@@ -97,6 +110,7 @@ async def favicon():
 
 api_version = "v1"
 prefix = f"/api/{api_version}"
+logger.info(f"API version set to {api_version} with prefix {prefix}")
 
 router = APIRouter()
 app.include_router(auth.router, prefix=prefix, tags=["Authentication"])

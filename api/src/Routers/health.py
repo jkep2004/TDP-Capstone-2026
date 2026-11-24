@@ -1,14 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+import structlog
 
 from ..schemas.HealthResponse import HealthResponse
 from ..schemas.ErrorResponse import ErrorResponse
 from database.database import get_db
 
+logger = structlog.get_logger(__name__)
+
 router = APIRouter(
     prefix="/health"
 )
+logger.info("Health router initialized with prefix /health")
 
 @router.get(
     "/",
@@ -32,6 +36,7 @@ router = APIRouter(
     }
 )
 def health():
+    logger.info("Health check endpoint called")
     return HealthResponse(
         status="healthy",
         version="1"
@@ -71,16 +76,17 @@ def health():
     }
 )
 def database_health(db: Session = Depends(get_db)):
+    logger.info("Database health check endpoint called")
     try:
         db.execute(text("SELECT 1")) # Execute SQL query to verify connectivity
-
+        logger.info("Database connection successful")
         return HealthResponse(
             status="healthy",
             version="1"
         )
 
     except Exception as e: # TODO: Add ErrorResponse model to OpenAPI spec
-        print(f"Database connection failed: {e}")
+        logger.error("ERROR: Database connection failed", error=str(e))
         raise HTTPException(
             status_code=503,
             detail="Database connection failed"
