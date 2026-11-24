@@ -1,10 +1,9 @@
 # NW TDP 2026 v2
-from fastapi import Depends, FastAPI, HTTPException, APIRouter
+from fastapi import Depends, FastAPI, APIRouter
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
-from pydantic import BaseModel, Field
 from .Routers import auth, calculate, categories, health, spend
 from .Core.auth import get_current_user
 
