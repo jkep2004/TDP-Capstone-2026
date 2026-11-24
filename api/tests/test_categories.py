@@ -119,7 +119,10 @@ test_rows = [
 ]
 
 @pytest.mark.parametrize("payload, expected_status", test_rows)
-def test_input_validation(client, payload, expected_status):
+def test_input_validation(client, monkeypatch, payload, expected_status):
+    # This test is about input validation, not factors: the shared mock returns
+    # category rows for every query, so stub the factor lookup out.
+    monkeypatch.setattr("src.Services.carbon.load_factors", lambda db: {})
     response = client.post("/api/v1/calculate", json=payload)
     
     print(response.status_code)
