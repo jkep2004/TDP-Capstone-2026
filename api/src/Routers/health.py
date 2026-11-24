@@ -12,6 +12,48 @@ router = APIRouter(
 
 @router.get(
     "/",
+    summary="Check all API services health",
+    description="""
+    Checks whether the API and all its services are running correctly.
+    """,
+    response_model=HealthResponse,
+    responses={
+        200: {
+            "description": "API is healthy",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "healthy",
+                        "version": "1"
+                    },
+                }
+            }
+        },
+    }
+)
+def health():
+    
+    api_health = api_health()
+    if api_health.status_code != 200:
+        raise HTTPException(
+            status_code=503,
+            detail="API health check failed"
+        )
+    
+    db_health = database_health()
+    if db_health.status_code != 200:
+        raise HTTPException(
+            status_code=503,
+            detail="Database connection failed"
+        )
+    
+    return HealthResponse(
+        status="healthy",
+        version="1"
+    )
+    
+@router.get(
+    "/api",
     summary="Check API health",
     description="""
     Checks whether the API is running correctly.
@@ -31,13 +73,12 @@ router = APIRouter(
         },
     }
 )
-def health():
-    # TODO: Collate other health endpoints (e.g., database, external services)
+def api_health():
     return HealthResponse(
         status="healthy",
         version="1"
     )
-    
+
 @router.get(
     "/database",
     summary="Check database connection",
@@ -81,6 +122,7 @@ def database_health(db: Session = Depends(get_db)):
         )
 
     except Exception as e: # TODO: Add ErrorResponse model to OpenAPI spec
+        print(f"Database connection failed: {e}")
         raise HTTPException(
             status_code=503,
             detail="Database connection failed"
