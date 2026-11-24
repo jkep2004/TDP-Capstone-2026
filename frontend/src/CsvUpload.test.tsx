@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import CsvUpload from './CsvUpload'
+
+afterEach(() => vi.unstubAllGlobals())
 
 const validCsv =
   'customer_id,week,travel,food,utilities\n' +
@@ -19,6 +21,36 @@ function createCsvFile(contents: string) {
 }
 
 describe('CsvUpload', () => {
+  it('calculates carbon impact using only the previewed weekly rows', async () => {
+    const request = vi.fn().mockResolvedValue(Response.json({
+      totalCarbonKg: 2,
+      breakdown: [{ category: 'travel', amount: 12.5, carbonKg: 2 }],
+    }))
+    vi.stubGlobal('fetch', request)
+    const user = userEvent.setup()
+    render(<CsvUpload month="2026-10" />)
+
+    await user.upload(screen.getByLabelText('Choose a CSV file'), createCsvFile(validCsv))
+    await user.click(screen.getByRole('button', { name: 'Preview spending' }))
+    await user.click(await screen.findByRole('button', { name: 'Calculate carbon impact' }))
+
+    expect(await screen.findByText('2 kg CO₂e')).toBeInTheDocument()
+    expect(request).toHaveBeenCalledOnce()
+    const [url, options] = request.mock.calls[0]
+    expect(url).toMatch(/\/api\/v1\/calculate\/$/)
+    expect(options.method).toBe('POST')
+    expect(JSON.parse(options.body)).toEqual({
+      spending: [
+        { CustomerID: 1, week: 1, category: 'travel', amount: 12.5 },
+        { CustomerID: 1, week: 1, category: 'food', amount: 30 },
+        { CustomerID: 1, week: 1, category: 'utilities', amount: 40 },
+        { CustomerID: 1, week: 2, category: 'travel', amount: 0 },
+        { CustomerID: 1, week: 2, category: 'food', amount: 20.25 },
+        { CustomerID: 1, week: 2, category: 'utilities', amount: 15 },
+      ],
+    })
+  })
+
   // Preview only demo-customer rows and calculate their totals for the chosen month.
   it('previews valid records for the demo customer and excludes other customers', async () => {
     const user = userEvent.setup()

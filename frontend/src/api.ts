@@ -1,33 +1,72 @@
 import { msalInstance } from "./msal";
 import { loginRequest } from "./authConfig";
+import type { AccountInfo } from "@azure/msal-browser";
 
-export async function callApi() { // TODO: Check this works with the new JWT auth flow
+const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
-  const account =
+export async function checkHealth(path: "/health/" | "/health/database") {
+  const response = await fetch(`${apiUrl}/api/v1${path}`);
+  if (!response.ok) {
+    throw new Error(`Health check failed (HTTP ${response.status})`);
+  }
+  return response.json() as Promise<{ status: string; version: string }>;
+}
+
+export type SpendingCategory = "travel" | "food" | "utilities";
+
+export async function calculateSpending(spending: {
+  CustomerID: number;
+  week: number;
+  category: SpendingCategory;
+  amount: number;
+}[]) {
+  const response = await fetch(`${apiUrl}/api/v1/calculate/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ spending })
+  });
+  if (!response.ok) {
+    throw new Error(`Calculation failed (HTTP ${response.status})`);
+  }
+  return response.json() as Promise<{
+    totalCarbonKg: number;
+    breakdown: { category: SpendingCategory; amount: number; carbonKg: number }[];
+  }>;
+}
+
+export async function callApi(
+  account: AccountInfo | undefined =
     msalInstance.getActiveAccount() ??
-    msalInstance.getAllAccounts()[0];
+    msalInstance.getAllAccounts()[0]
+) {
 
-  if (!account) { // TODO: Redirect to login page if user is not authenticated
+  if (!account) {
     throw new Error("User not authenticated");
   }
 
-  const token = await msalInstance.acquireTokenSilent({
+  const entraToken = await msalInstance.acquireTokenSilent({
     ...loginRequest,
     account
   });
 
-  const response = await fetch(
-    `${import.meta.env.VITE_API_URL}/api/profile`,
-    {
-      headers: {
-        Authorization: `Bearer ${token.accessToken}`
-      }
-    }
-  );
+  const authResponse = await fetch(`${apiUrl}/api/v1/auth/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: entraToken.accessToken })
+  });
 
-  if (!response.ok) {
-    throw new Error("API request failed"); // TODO: Handle API errors more gracefully
+  if (!authResponse.ok) {
+    throw new Error(`Token exchange failed (${authResponse.status})`);
   }
 
-  return response.json();
+  const { access_token: appToken } = await authResponse.json();
+  const userResponse = await fetch(`${apiUrl}/api/user`, {
+    headers: { Authorization: `Bearer ${appToken}` }
+  });
+
+  if (!userResponse.ok) {
+    throw new Error(`User request failed (${userResponse.status})`);
+  }
+
+  return userResponse.json();
 }

@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { parseSpendingCsv } from './utils/parseSpendingCsv'
 import type { SpendingRow } from './utils/parseSpendingCsv'
+import { calculateSpending } from './api'
+
+const categories = ['travel', 'food', 'utilities'] as const
 
 type CsvUploadProps = {
   month: string
@@ -11,6 +14,34 @@ function CsvUpload({ month }: CsvUploadProps) {
   const [rows, setRows] = useState<SpendingRow[]>([])
   const [isReading, setIsReading] = useState(false)
   const [error, setError] = useState('')
+  const [calculation, setCalculation] = useState<Awaited<ReturnType<typeof calculateSpending>>>()
+  const [isCalculating, setIsCalculating] = useState(false)
+  const [calculationError, setCalculationError] = useState('')
+
+  const clearCalculation = () => {
+    setCalculation(undefined)
+    setCalculationError('')
+  }
+
+  const calculate = async () => {
+    clearCalculation()
+    setIsCalculating(true)
+    try {
+      const spending = rows.flatMap((row) =>
+        categories.map((category) => ({
+          CustomerID: row.customer_id,
+          week: row.week,
+          category,
+          amount: row[category],
+        }))
+      )
+      setCalculation(await calculateSpending(spending))
+    } catch (error) {
+      setCalculationError(error instanceof Error ? error.message : 'Calculation failed.')
+    } finally {
+      setIsCalculating(false)
+    }
+  }
 
   const selectedMonth = month
     ? new Intl.DateTimeFormat('en-GB', {
@@ -26,6 +57,7 @@ function CsvUpload({ month }: CsvUploadProps) {
     }
 
     setError('')
+    clearCalculation()
     setRows([])
     setIsReading(true)
 
@@ -85,13 +117,14 @@ function CsvUpload({ month }: CsvUploadProps) {
           id="spending-csv"
           type="file"
           accept=".csv"
-          disabled={isReading}
+          disabled={isReading || isCalculating}
           onChange={(event) => {
             const selectedFile = event.target.files?.[0] ?? null
 
             setFile(selectedFile)
             setRows([])
             setError('')
+            clearCalculation()
           }}
         />
       </div>
@@ -103,13 +136,13 @@ function CsvUpload({ month }: CsvUploadProps) {
       )}
 
       <p className="help-text">
-        Your file has not been uploaded or saved.
+        The preview reads the file locally. Calculation sends the previewed spending to the API.
       </p>
 
       <button
         type="button"
         onClick={readFile}
-        disabled={!file || isReading}
+        disabled={!file || isReading || isCalculating}
       >
         {isReading ? 'Reading file…' : 'Preview spending'}
       </button>
@@ -180,8 +213,27 @@ function CsvUpload({ month }: CsvUploadProps) {
           <p className="help-text">
             These totals cover only the weeks provided. The file has
             no dates, so it cannot confirm coverage of the selected
-            month. Nothing has been uploaded or saved.
+            month.
           </p>
+          <button type="button" onClick={calculate} disabled={isCalculating}>
+            {isCalculating ? 'Calculating…' : 'Calculate carbon impact'}
+          </button>
+          {calculationError && <p role="alert">{calculationError}</p>}
+          {calculation && (
+            <div role="status">
+              <p>Total carbon impact: <strong>{calculation.totalCarbonKg} kg CO₂e</strong></p>
+              <ul>
+                {categories.map((category) => (
+                  <li key={category}>
+                    {category}: {calculation.breakdown
+                      .filter((item) => item.category === category)
+                      .reduce((total, item) => total + item.carbonKg, 0)} kg CO₂e
+                  </li>
+                ))}
+              </ul>
+              <p>The current API returns placeholder carbon values.</p>
+            </div>
+          )}
         </section>
       )}
     </div>

@@ -11,6 +11,9 @@ import {
 
 import App from './App'
 import { loginRequest } from './authConfig'
+import { callApi } from './api'
+
+vi.mock('./api', () => ({ callApi: vi.fn() }))
 
 vi.mock('@azure/msal-react', () => ({
   useIsAuthenticated: vi.fn(),
@@ -43,6 +46,8 @@ function setAuthenticationState(authenticated: boolean) {
 
 describe('App', () => {
   beforeEach(() => {
+    vi.mocked(callApi).mockReset()
+    vi.mocked(callApi).mockResolvedValue({})
     loginRedirect.mockReset()
     loginRedirect.mockResolvedValue(undefined)
     logoutRedirect.mockReset()
@@ -97,6 +102,8 @@ describe('App', () => {
     setAuthenticationState(true)
     const user = userEvent.setup()
     render(<App />)
+    expect(await screen.findByText('API session verified')).toBeInTheDocument()
+    expect(callApi).toHaveBeenCalledWith(testAccount)
 
     expect(
       screen.getByRole('heading', { name: 'Monthly spending' })
