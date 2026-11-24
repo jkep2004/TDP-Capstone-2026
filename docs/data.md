@@ -1,5 +1,6 @@
 # Data Documentation
 
+Owner: Data Engineer (Yihong Wang)
 
 ## 1. Data sources
 
@@ -10,10 +11,12 @@
 | Shopping threshold | [ONS *Family spending in the UK, April 2024 to March 2025*](https://www.ons.gov.uk/peoplepopulationandcommunity/personalandhouseholdfinances/expenditure/bulletins/familyspendingintheuk/april2024tomarch2025) | Monthly: Shopping £250 (see section 3) |
 | Recommendation logic and examples | Appendix B - Recommendation Engine Examples (project brief in [`Capstone-PDFs`](../Capstone-PDFs)) | Rule-based; savings and carbon formulas |
 | Emission factors | [**UK Government (Defra / University of Leeds), "UK and England's carbon footprint to 2023" - Spend-based emissions multipliers**](https://www.gov.uk/government/statistics/uks-carbon-footprint), sheet `COICOP_multipliers_2023` (published 30 June 2026, Open Government Licence 3.0) | kgCO2e per £, **including VAT**. COICOP is the household-spending classification, so it fits customer spending |
-| Sample spending (Sprint 3) | Made up by the data engineer: `sample_spending.sql` | 8 customers with different spending patterns, Sep-Nov 2026, saved against sub-categories. Expected results in [`sample_expected_results.md`](sample_expected_results.md) |
+| Sample spending (Sprint 3) | Synthetic, generated with AI assistance (Claude) and checked by the data engineer: `sample_spending.sql` | 8 customers with different spending patterns, Sep-Nov 2026, saved against sub-categories. Expected results in [`sample_expected_results.md`](sample_expected_results.md) |
 | UK average footprint | [UK Gov, *Carbon footprint for the UK and England to 2023*](https://www.gov.uk/government/statistics/uks-carbon-footprint/carbon-footprint-for-the-uk-and-england-to-2023) | 631 kg per person per month (section 3) |
 
 No real customer data is used. All data is synthetic or test data.
+
+**AI use.** The Sprint 3 sample spending, the expected results and parts of the SQL were drafted with AI assistance (Claude). They were reviewed before use: the data-quality checks in `queries.sql` (sections 4, 7 and 8) all return no rows on Azure, and the view results match `sample_expected_results.md`.
 
 ## 2. Tables and views (`infra/database/schema.sql`)
 
@@ -33,6 +36,7 @@ No real customer data is used. All data is synthetic or test data.
 | `vw_CustomerMonthlyFootprint` (view) | Total spend and carbon per customer and month, kg CO2e per £, change from the previous month, and comparison with the UK average |
 | `vw_CategoryInsights` (view) | Each main category's spend and carbon, its share of the month (%), its rank by carbon, and change from the previous month |
 | `vw_Recommendations` (view) | One row per main category over its threshold: advice, the sub-category to focus on, its alternative and action, £ saved, kg CO2e saved and priority |
+| `vw_MonthlySavingsSummary` (view) | One row per customer and month: number of recommendations, total £ saved, total kg CO2e saved, footprint after the savings and % of footprint saved |
 | `vw_TopSubCategories` (view) | Carbon per sub-category, ranked within the month, to show what drives the footprint (e.g. Gas rather than Utilities) |
 
 ### What's in the database (after `seed.sql` and `test_spending.sql`)
