@@ -1,4 +1,5 @@
 
+from unicodedata import category
 import uuid
 from datetime import date
 from unittest.mock import MagicMock
@@ -7,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.main import app
+from src.schemas.Category import Category
 from database.database import get_db
 
 # Test data
@@ -15,32 +17,74 @@ CUSTOMER_ID = str(uuid.uuid4())
 MONTH = "2026-11-01"
 
 MOCK_CATEGORIES = [
-    (1, "Food", "Food and dining expenses", None, True),
-    (2, "Groceries", "Grocery expenses", 1, True),
-    (3, "Travel", "Travel expenses", None, True),
-    (4, "Flights", "Flight expenses", 3, True),
-    (5, "Utilities", "Household utilities", None, False),
-    (6, "Public Transport", "Public transport expenses", 3, True),
-    (7, "Other", "Other expenses", None, False),
+    Category(
+        id=1,
+        name="Food",
+        description="Food and dining expenses",
+        parent_id=None,
+        is_carbon_tracked=True
+    ),
+    Category(
+        id=2,
+        name="Groceries",
+        description="Grocery expenses",
+        parent_id=1,
+        is_carbon_tracked=True
+    ),
+    Category(
+        id=3,
+        name="Travel",
+        description="Travel expenses",
+        parent_id=None,
+        is_carbon_tracked=True
+    ),
+    Category(
+        id=4,
+        name="Flights",
+        description="Flight expenses",
+        parent_id=3,
+        is_carbon_tracked=True
+    ),
+    Category(
+        id=5,
+        name="Utilities",
+        description="Household utilities",
+        parent_id=None,
+        is_carbon_tracked=False
+    ),
+    Category(
+        id=6,
+        name="Public Transport",
+        description="Public transport expenses",
+        parent_id=3,
+        is_carbon_tracked=True
+    ),
+    Category(
+        id=7,
+        name="Other",
+        description="Other expenses",
+        parent_id=None,
+        is_carbon_tracked=False
+    ),
 ]
 
 def make_spending_item(
-    category=3,
-    subcategory=None,
+    categoryID=3,
+    subcategoryID=None,
     amount=100.0,
     week=1,
-    customer_id=CUSTOMER_ID,
+    customerID=CUSTOMER_ID,
     month=MONTH,
 ):
     return {
-        "CustomerID": customer_id,
-        "category": category,
-        "subcategory": subcategory,
+        "customerID": customerID,
+        "categoryID": categoryID,
+        "subcategoryID": subcategoryID,
         "amount": amount,
         "month": month,
         "week": week,
     }
-
+    
 def make_db_result(row=None, rows=None):
     """Create a mock SQLAlchemy result supporting first() and fetchall()."""
     result = MagicMock()
@@ -65,13 +109,13 @@ def mock_db():
             category = next(
                 (
                     row for row in MOCK_CATEGORIES
-                    if row[0] == category_id and row[3] is None
+                    if row.id == category_id and row.parent_id is None
                 ),
                 None,
             )
 
             return make_db_result(
-                row=(category[0],) if category else None
+                row=(category.id,) if category else None
             )
 
         # Subcategory lookup
@@ -82,14 +126,14 @@ def mock_db():
             category = next(
                 (
                     row for row in MOCK_CATEGORIES
-                    if row[3] == parent_id
-                    and row[1].lower() == str(subcategory_name).lower()
+                    if row.parent_id == parent_id
+                    and row.name.lower() == str(subcategory_name).lower()
                 ),
                 None,
             )
 
             return make_db_result(
-                row=(category[0],) if category else None
+                row=(category.id,) if category else None
             )
 
         # Fallback for unexpected queries
@@ -117,8 +161,8 @@ def test_calculate_with_parent_category(client):
     payload = {
         "spending": [
             make_spending_item(
-                category=3,
-                subcategory=None,
+                categoryID=3,
+                subcategoryID=None,
                 amount=100.0,
                 week=1,
             )
@@ -126,6 +170,9 @@ def test_calculate_with_parent_category(client):
     }
 
     response = client.post("/api/v1/calculate/", json=payload)
+    
+    print("Response status:", response.status_code)
+    print("Response body:", response.json())
 
     assert response.status_code == 200
 
@@ -147,8 +194,8 @@ def test_calculate_with_valid_subcategory(client):
     payload = {
         "spending": [
             make_spending_item(
-                category=3,
-                subcategory="flights",
+                categoryID=1,
+                subcategoryID=2,
                 amount=250.0,
                 week=2,
             )
@@ -156,6 +203,9 @@ def test_calculate_with_valid_subcategory(client):
     }
 
     response = client.post("/api/v1/calculate/", json=payload)
+
+    print ("Response status:", response.status_code)
+    print ("Response body:", response.json())
 
     assert response.status_code == 200
 
@@ -166,8 +216,8 @@ def test_calculate_with_valid_subcategory(client):
 
     breakdown_item = data["breakdown"][0]
 
-    assert breakdown_item["category"] == 3
-    assert breakdown_item["subcategory"] == "flights"
+    assert breakdown_item["category"] == 1
+    assert breakdown_item["subcategory"] == 2
     assert breakdown_item["amount"] == 250.0
     assert breakdown_item["week"] == 2
 
@@ -175,20 +225,20 @@ def test_calculate_with_multiple_spending_items(client):
     payload = {
         "spending": [
             make_spending_item(
-                category=1,
-                subcategory="groceries",
+                categoryID=1,
+                subcategoryID=2,
                 amount=75.50,
                 week=1,
             ),
             make_spending_item(
-                category=3,
-                subcategory="flights",
+                categoryID=3,
+                subcategoryID=5,
                 amount=250.0,
                 week=2,
             ),
             make_spending_item(
-                category=5,
-                subcategory=None,
+                categoryID=5,
+                subcategoryID=None,
                 amount=60.0,
                 week=3,
             ),
@@ -209,8 +259,8 @@ def test_calculate_with_other_parent_category(client):
     payload = {
         "spending": [
             make_spending_item(
-                category=7,
-                subcategory=None,
+                categoryID=7,
+                subcategoryID=None,
                 amount=50.0,
             )
         ]
@@ -224,8 +274,8 @@ def test_calculate_with_public_transport_subcategory(client):
     payload = {
         "spending": [
             make_spending_item(
-                category=3,
-                subcategory="public transport",
+                categoryID=3,
+                subcategoryID=6,
                 amount=45.0,
             )
         ]
@@ -240,7 +290,7 @@ def test_calculate_with_public_transport_subcategory(client):
 def test_calculate_with_nonexistent_category(client):
     payload = {
         "spending": [
-            make_spending_item(category=999)
+            make_spending_item(categoryID=999)
         ]
     }
 
@@ -252,7 +302,7 @@ def test_calculate_with_child_category_as_parent(client):
     # Category 4 (Flights) is a child of Travel, not a parent category.
     payload = {
         "spending": [
-            make_spending_item(category=4)
+            make_spending_item(categoryID=4)
         ]
     }
 
@@ -264,8 +314,8 @@ def test_calculate_with_invalid_subcategory(client):
     payload = {
         "spending": [
             make_spending_item(
-                category=3,
-                subcategory="hotels",
+                categoryID=3,
+                subcategoryID="hotels",
             )
         ]
     }
@@ -279,8 +329,8 @@ def test_calculate_with_subcategory_from_wrong_parent(client):
     payload = {
         "spending": [
             make_spending_item(
-                category=3,
-                subcategory="groceries",
+                categoryID=3,
+                subcategoryID=2,
             )
         ]
     }
@@ -288,35 +338,6 @@ def test_calculate_with_subcategory_from_wrong_parent(client):
     response = client.post("/api/v1/calculate/", json=payload)
 
     assert response.status_code == 422
-
-def test_calculate_with_subcategory_case_insensitive(client):
-    payload = {
-        "spending": [
-            make_spending_item(
-                category=3,
-                subcategory="FLIGHTS",
-            )
-        ]
-    }
-
-    response = client.post("/api/v1/calculate/", json=payload)
-
-    assert response.status_code == 200
-
-def test_calculate_with_subcategory_whitespace(client):
-    payload = {
-        "spending": [
-            make_spending_item(
-                category=3,
-                subcategory="  flights  ",
-            )
-        ]
-    }
-
-    # The SpendingItem validator strips and lowercases the input.
-    response = client.post("/api/v1/calculate/", json=payload)
-
-    assert response.status_code == 200
 
 # Request schema validation tests
 
@@ -339,7 +360,7 @@ def test_calculate_without_spending_field(client):
 def test_calculate_with_invalid_customer_id(client):
     payload = {
         "spending": [
-            make_spending_item(customer_id="not-a-uuid")
+            make_spending_item(customerID="not-a-uuid")
         ]
     }
 
@@ -350,7 +371,7 @@ def test_calculate_with_invalid_customer_id(client):
 def test_calculate_with_string_category(client):
     payload = {
         "spending": [
-            make_spending_item(category="travel")
+            make_spending_item(categoryID="travel")
         ]
     }
 
@@ -361,7 +382,7 @@ def test_calculate_with_string_category(client):
 def test_calculate_with_zero_category(client):
     payload = {
         "spending": [
-            make_spending_item(category=0)
+            make_spending_item(categoryID=0)
         ]
     }
 
@@ -372,7 +393,7 @@ def test_calculate_with_zero_category(client):
 def test_calculate_with_negative_category(client):
     payload = {
         "spending": [
-            make_spending_item(category=-1)
+            make_spending_item(categoryID=-1)
         ]
     }
 
@@ -437,7 +458,7 @@ def test_calculate_with_missing_month(client):
 
 def test_calculate_with_missing_customer_id(client):
     item = make_spending_item()
-    del item["CustomerID"]
+    del item["customerID"]
 
     response = client.post(
         "/api/v1/calculate/",
@@ -448,7 +469,7 @@ def test_calculate_with_missing_customer_id(client):
 
 def test_calculate_with_missing_category(client):
     item = make_spending_item()
-    del item["category"]
+    del item["categoryID"]
 
     response = client.post(
         "/api/v1/calculate/",
@@ -471,7 +492,7 @@ def test_calculate_with_extra_field(client):
 def test_calculate_with_invalid_subcategory_type(client):
     payload = {
         "spending": [
-            make_spending_item(subcategory=123)
+            make_spending_item(subcategoryID=True)  # Boolean instead of int or None
         ]
     }
 

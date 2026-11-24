@@ -57,8 +57,8 @@ def create_spend_entry(
     parent_category_id = spend_data.categoryID
     logger.info("Creating spend entry", customer_id=customer_id, category_id=parent_category_id, subcategory_id=spend_data.subcategoryID)
     
-    if spend_data.CustomerID != customer_id:
-        logger.error("ERROR: Customer ID does not match authenticated user", customer_id=spend_data.CustomerID, authenticated_user_id=customer_id)
+    if spend_data.customerID != customer_id:
+        logger.error("ERROR: Customer ID does not match authenticated user", customer_id=spend_data.customerID, authenticated_user_id=customer_id)
         raise HTTPException(
             status_code=403,
             detail="Customer ID does not match authenticated user"
@@ -93,14 +93,14 @@ def create_spend_entry(
                 SELECT CategoryId
                 FROM dbo.Categories
                 WHERE ParentCategoryId = :parent_category_id
-                  AND LOWER(Name) = :subcategory
+                  AND CategoryId = :subcategoryID
             """)
 
             subcategory_result = db.execute(
                 subcategory_query,
                 {
                     "parent_category_id": parent_category_id,
-                    "subcategory": spend_data.subcategoryID,
+                    "subcategoryID": spend_data.subcategoryID,
                 }
             ).first()
 

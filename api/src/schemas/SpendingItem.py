@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from pydantic import field_validator, model_validator
 
 class SpendingItem(BaseModel, extra="forbid"):
-    CustomerID: UUID = Field(description="The unique identifier of the customer")
+    customerID: UUID = Field(description="The unique identifier of the customer")
     categoryID: int = Field(ge=0, description="The spending category ID")
     subcategoryID: int | None = Field(
         default=None,

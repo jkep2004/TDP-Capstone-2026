@@ -51,11 +51,11 @@ def calculate(
                     SELECT CategoryId
                     FROM dbo.Categories
                     WHERE ParentCategoryId = :parent_category_id
-                      AND LOWER(Name) = :subcategory
+                      AND CategoryId = :subcategory_ID
                 """),
                 {
                     "parent_category_id": item.categoryID,
-                    "subcategory": item.subcategoryID,
+                    "subcategory_ID": item.subcategoryID,
                 },
             ).first()
 
