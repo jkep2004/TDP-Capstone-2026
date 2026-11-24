@@ -30,6 +30,15 @@ type SpendingEntry = {
   amount: number;
 };
 
+export async function resolveSpendingCategories<T extends string>(names: readonly T[]) {
+  const available = await getCategories();
+  return names.map((category) => {
+    const match = available.find((item) => item.parent_id === null && item.name.toLowerCase() === category);
+    if (!match) throw new Error(`The API does not offer the ${category} category.`);
+    return { category, categoryID: match.id };
+  });
+}
+
 export async function calculateSpending(spending: SpendingEntry[]) {
   const response = await fetch(`${apiUrl}/api/v1/calculate/`, {
     method: "POST",
@@ -73,20 +82,27 @@ async function exchangeToken(
   return authResponse.json() as Promise<{ access_token: string; user: { id: string } }>;
 }
 
-export async function saveSpending(entry: Omit<SpendingEntry, "customerID">, account: AccountInfo) {
+export async function saveSpending(
+  entries: (Omit<SpendingEntry, "customerID" | "week"> & { week: number | null })[],
+  account: AccountInfo
+) {
   const session = await exchangeToken(account);
-  const response = await fetch(`${apiUrl}/api/v1/spend/`, {
+  const response = await fetch(`${apiUrl}/api/v1/spend/batch`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${session.access_token}`
     },
-    body: JSON.stringify({ ...entry, customerID: session.user.id })
+    body: JSON.stringify(entries.map((entry) => ({ ...entry, customerID: session.user.id })))
   });
   if (!response.ok) {
+    if (response.status === 409) {
+      const { detail } = await response.json();
+      if (typeof detail === "string") throw new Error(detail);
+    }
     throw new Error(`Save failed (HTTP ${response.status})`);
   }
-  return response.json() as Promise<{ spendingId: number }>;
+  return response.json() as Promise<{ spendingIds: number[] }>;
 }
 
 export async function callApi(account?: AccountInfo) {

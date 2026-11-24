@@ -6,6 +6,10 @@ import CsvUpload from './CsvUpload'
 
 afterEach(() => vi.unstubAllGlobals())
 
+vi.mock('./msal', () => ({
+  msalInstance: { acquireTokenSilent: vi.fn().mockResolvedValue({ accessToken: 'entra-token' }) },
+}))
+
 const validCsv =
   'customer_id,week,travel,food,utilities\n' +
   '1,1,12.50,30,40\n' +
@@ -21,6 +25,37 @@ function createCsvFile(contents: string) {
 }
 
 describe('CsvUpload', () => {
+  it('saves all previewed categories and weeks in one authenticated request', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(Response.json([
+        { id: 1, name: 'Travel', parent_id: null },
+        { id: 2, name: 'Food', parent_id: null },
+        { id: 3, name: 'Utilities', parent_id: null },
+      ]))
+      .mockResolvedValueOnce(Response.json({ access_token: 'app-token', user: { id: 'customer' } }))
+      .mockResolvedValueOnce(Response.json({ spendingIds: [51, 52, 53] }))
+    vi.stubGlobal('fetch', request)
+    const user = userEvent.setup()
+    render(<CsvUpload month="2026-10" account={{
+      homeAccountId: 'home', localAccountId: 'local', tenantId: 'tenant',
+      environment: 'login.microsoftonline.com', username: 'learner@example.com',
+    }} />)
+
+    await user.upload(screen.getByLabelText('Choose a CSV file'), createCsvFile(validCsv))
+    await user.click(screen.getByRole('button', { name: 'Preview spending' }))
+    await user.selectOptions(await screen.findByLabelText('Customer in file'), '2')
+    await user.click(screen.getByRole('button', { name: 'Save spending' }))
+
+    expect(await screen.findByText('Saved 3 entries. IDs: 51, 52, 53.')).toBeInTheDocument()
+    expect(request).toHaveBeenCalledTimes(3)
+    const [url, options] = request.mock.calls[2]
+    expect(url).toMatch(/\/api\/v1\/spend\/batch$/)
+    expect(options.headers.Authorization).toBe('Bearer app-token')
+    expect(JSON.parse(options.body)).toEqual([1, 2, 3].map((categoryID) => ({
+      customerID: 'customer', month: '2026-10-01', week: 1, categoryID, amount: 100,
+    })))
+  })
+
   it('calculates carbon impact using only the previewed weekly rows', async () => {
     const customerId = 'b55b72a0-1df6-4d73-bf41-8110a29ac51d'
     const request = vi.fn().mockResolvedValueOnce(Response.json([

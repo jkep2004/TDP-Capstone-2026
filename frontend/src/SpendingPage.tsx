@@ -4,11 +4,10 @@ import type { AccountInfo } from '@azure/msal-browser'
 import './SpendingPage.css'
 import CsvUpload from './CsvUpload'
 import SpendingForm from './SpendingForm'
-import WeeklySpendingForm from './WeeklySpendingForm'
 
 function SpendingPage({ account }: { account?: AccountInfo } = {}) {
   const [month, setMonth] = useState('')
-  const [mode, setMode] = useState<'manual' | 'csv' | 'weekly'>('manual')
+  const [mode, setMode] = useState<'manual' | 'csv'>('manual')
 
   return (
     <main className="spending-page">
@@ -38,22 +37,15 @@ function SpendingPage({ account }: { account?: AccountInfo } = {}) {
           >
             Upload CSV
           </button>
-          {account && (
-            <button type="button" className="mode-button" aria-pressed={mode === 'weekly'}
-              onClick={() => setMode('weekly')}>
-              Save weekly spending
-            </button>
-          )}
         </div>
 
         <h2 id="form-heading">
-          {mode === 'manual' ? 'Enter spending manually' : mode === 'csv' ? 'Upload a CSV file' : 'Enter weekly spending'}
+          {mode === 'manual' ? 'Enter spending manually' : 'Upload a CSV file'}
         </h2>
         <p id="spending-help" className="help-text">
           {mode === 'manual'
             ? 'All amounts are in pounds (£). Enter 0 if you spent nothing in a category.'
-            : mode === 'csv' ? 'Choose the month that this CSV would apply to.'
-            : 'Save one category for a week within the selected month.'}
+            : 'Choose the month that this CSV would apply to.'}
         </p>
 
         <div className="field">
@@ -62,7 +54,7 @@ function SpendingPage({ account }: { account?: AccountInfo } = {}) {
             id="month"
             name="month"
             type="month"
-            form={mode === 'weekly' ? 'weekly-spending-form' : 'manual-spending-form'}
+            form="manual-spending-form"
             value={month}
             onChange={(event) => setMonth(event.target.value)}
             required
@@ -70,12 +62,11 @@ function SpendingPage({ account }: { account?: AccountInfo } = {}) {
         </div>
 
         <div hidden={mode !== 'manual'}>
-          <SpendingForm month={month} />
+          <SpendingForm month={month} account={account} />
         </div>
         <div hidden={mode !== 'csv'}>
-          <CsvUpload month={month} customerId={account?.localAccountId} />
+          <CsvUpload month={month} customerId={account?.localAccountId} account={account} />
         </div>
-        {account && mode === 'weekly' && <WeeklySpendingForm account={account} month={month} />}
       </section>
     </main>
   )
