@@ -33,15 +33,15 @@ router = APIRouter(
 )
 def health():
     
-    api_health = api_health()
-    if api_health.status_code != 200:
+    api_status = api_health()
+    if api_status.status != "healthy":
         raise HTTPException(
             status_code=503,
             detail="API health check failed"
         )
     
-    db_health = database_health()
-    if db_health.status_code != 200:
+    db_status = database_health()
+    if db_status.status != "healthy":
         raise HTTPException(
             status_code=503,
             detail="Database connection failed"
