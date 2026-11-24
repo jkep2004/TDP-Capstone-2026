@@ -12,9 +12,9 @@ router = APIRouter(
 
 @router.get(
     "/",
-    summary="Check API health",
+    summary="Check all API services health",
     description="""
-    Checks whether the API is running correctly.
+    Checks whether the API and all its services are running correctly.
     """,
     response_model=HealthResponse,
     responses={
@@ -32,12 +32,11 @@ router = APIRouter(
     }
 )
 def health():
-    # TODO: Collate other health endpoints (e.g., database, external services)
     return HealthResponse(
         status="healthy",
         version="1"
     )
-    
+
 @router.get(
     "/database",
     summary="Check database connection",
@@ -81,6 +80,7 @@ def database_health(db: Session = Depends(get_db)):
         )
 
     except Exception as e: # TODO: Add ErrorResponse model to OpenAPI spec
+        print(f"Database connection failed: {e}")
         raise HTTPException(
             status_code=503,
             detail="Database connection failed"

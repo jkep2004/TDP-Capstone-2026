@@ -1,11 +1,10 @@
 # NW TDP 2026 v2
-from fastapi import Depends, FastAPI, HTTPException, APIRouter
+from fastapi import Depends, FastAPI, APIRouter
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
-from pydantic import BaseModel, Field
-from .Routers import auth, calculate, categories, health
+from .Routers import auth, calculate, categories, health, spend
 from .Core.auth import get_current_user
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -58,9 +57,9 @@ app.add_middleware(
         # "https://frontend-domain.com" # TODO: Replace with frontend domain in production (And add to AZURE Entra app registration)
         # "https://backend-domain.com" # TODO: Replace with backend domain in production (And add to AZURE Entra app registration)
     ],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["Authorization", "Content-Type"]
+    allow_headers=["*"]
 )
 
 app.mount(
@@ -73,11 +72,15 @@ app.mount(
 async def favicon():
     return FileResponse(STATIC_DIR / "img" / "favicon.ico")
 
+api_version = "v1"
+prefix = f"/api/{api_version}"
+
 router = APIRouter()
-app.include_router(health.router, prefix="/api/v1", tags=["Health"])
-app.include_router(calculate.router, prefix="/api/v1", tags=["Calculate"])
-app.include_router(categories.router, prefix="/api/v1", tags=["Categories"])
-app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
+app.include_router(auth.router, prefix=prefix, tags=["Authentication"])
+app.include_router(calculate.router, prefix=prefix, tags=["Calculate"])
+app.include_router(categories.router, prefix=prefix, tags=["Categories"])
+app.include_router(health.router, prefix=prefix, tags=["Health"])
+app.include_router(spend.router, prefix=prefix, tags=["Spending"])
 
 @app.get("/api/user") # DEBUG
 def user_endpoint(
