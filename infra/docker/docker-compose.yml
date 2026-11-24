@@ -10,5 +10,29 @@ services:
       - mssql_data:/var/opt/mssql
     restart: always
 
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: tdp_backend
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - sqlserver
+    restart: always
+
+  frontend:
+      build: ./frontend
+      container_name: tdp_frontend
+      env_file:
+        - .env
+      ports:
+        - "5173:5173"
+      depends_on:
+        - backend
+      restart: always
+
 volumes:
   mssql_data:
