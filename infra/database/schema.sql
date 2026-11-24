@@ -10,6 +10,7 @@
    Re-runnable: drops and recreates all tables.
    ===================================================================== */
 
+DROP TABLE IF EXISTS dbo.RecommendationActions;
 DROP TABLE IF EXISTS dbo.Spending;
 DROP TABLE IF EXISTS dbo.RecommendationRules;
 DROP TABLE IF EXISTS dbo.Assumptions;
@@ -101,6 +102,21 @@ CREATE TABLE dbo.RecommendationRules (
 );
 GO
 
+/* Sprint 3: practical actions per SUB-category (e.g. Fuel -> public transport).
+   The main-category rule decides IF a recommendation is shown (threshold) and the
+   saving (reduction %); the action makes the advice specific to what the customer
+   spends most carbon on inside that main category. */
+CREATE TABLE dbo.RecommendationActions (
+    ActionId               INT IDENTITY(1,1) PRIMARY KEY,
+    CategoryId             INT           NOT NULL
+        CONSTRAINT FK_Actions_Category REFERENCES dbo.Categories(CategoryId)
+        CONSTRAINT UQ_Actions_Category UNIQUE,
+    LowerCarbonAlternative NVARCHAR(200) NOT NULL,
+    ActionText             NVARCHAR(300) NOT NULL,
+    Source                 NVARCHAR(200) NOT NULL
+);
+GO
+
 /* Each category with its main category.
    For a main category, TopCategoryId is itself. */
 CREATE OR ALTER VIEW dbo.vw_CategoryHierarchy AS
@@ -179,4 +195,131 @@ FROM dbo.vw_EstimatedMonthlySpend m
 JOIN dbo.vw_CategoryHierarchy h          ON h.CategoryId  = m.CategoryId
 JOIN dbo.vw_EffectiveEmissionsFactors ef ON ef.CategoryId = m.CategoryId
 GROUP BY m.CustomerId, m.SpendMonth, h.TopCategoryId, h.TopCategoryName;
+GO
+
+/* =====================================================================
+   Sprint 3 - carbon insights (like the NatWest Carbon Footprint Tracker
+   and Starling Spending Insights). The API reads these views directly.
+   "Previous month" = the customer's previous month with data.
+   ===================================================================== */
+
+/* Monthly footprint per customer: total spend and carbon, carbon per GBP,
+   change from the previous month, and comparison with the UK average. */
+CREATE OR ALTER VIEW dbo.vw_CustomerMonthlyFootprint AS
+WITH t AS (
+    SELECT CustomerId, SpendMonth,
+           SUM(EstMonthlyGBP)      AS TotalSpendGBP,
+           SUM(EstMonthlyCarbonKg) AS TotalCarbonKg
+    FROM dbo.vw_MonthlyByMainCategory
+    GROUP BY CustomerId, SpendMonth
+), p AS (
+    SELECT t.*,
+           LAG(t.TotalCarbonKg) OVER (PARTITION BY t.CustomerId ORDER BY t.SpendMonth) AS PrevMonthCarbonKg
+    FROM t
+)
+SELECT p.CustomerId,
+       p.SpendMonth,
+       CAST(p.TotalSpendGBP AS DECIMAL(12,2))                                     AS TotalSpendGBP,
+       CAST(p.TotalCarbonKg AS DECIMAL(12,2))                                     AS TotalCarbonKg,
+       CAST(p.TotalCarbonKg / NULLIF(p.TotalSpendGBP, 0) AS DECIMAL(10,4))        AS KgCO2ePerGBP,
+       CAST(p.PrevMonthCarbonKg AS DECIMAL(12,2))                                 AS PrevMonthCarbonKg,
+       CAST(p.TotalCarbonKg - p.PrevMonthCarbonKg AS DECIMAL(12,2))               AS ChangeKg,
+       CAST(100.0 * (p.TotalCarbonKg - p.PrevMonthCarbonKg)
+            / NULLIF(p.PrevMonthCarbonKg, 0) AS DECIMAL(7,1))                     AS ChangePct,
+       CAST(a.Value AS DECIMAL(12,2))                                             AS UkAvgMonthlyKg,
+       CAST(100.0 * (p.TotalCarbonKg - a.Value) / NULLIF(a.Value, 0) AS DECIMAL(7,1)) AS VsUkAvgPct
+FROM p
+LEFT JOIN (SELECT Value FROM dbo.Assumptions WHERE Name = N'UkAvgMonthlyKgPerPerson') a ON 1 = 1;
+GO
+
+/* Each main category's share of the month, its rank by carbon, and the
+   change from the previous month. Rank 1 = highest carbon that month. */
+CREATE OR ALTER VIEW dbo.vw_CategoryInsights AS
+WITH c AS (
+    SELECT m.CustomerId, m.SpendMonth, m.CategoryId, m.Category,
+           m.EstMonthlyGBP, m.EstMonthlyCarbonKg,
+           SUM(m.EstMonthlyGBP)      OVER (PARTITION BY m.CustomerId, m.SpendMonth) AS MonthSpendGBP,
+           SUM(m.EstMonthlyCarbonKg) OVER (PARTITION BY m.CustomerId, m.SpendMonth) AS MonthCarbonKg,
+           LAG(m.EstMonthlyCarbonKg) OVER (PARTITION BY m.CustomerId, m.CategoryId ORDER BY m.SpendMonth) AS PrevMonthCarbonKg
+    FROM dbo.vw_MonthlyByMainCategory m
+)
+SELECT c.CustomerId,
+       c.SpendMonth,
+       c.CategoryId,
+       c.Category,
+       c.EstMonthlyGBP                                                            AS SpendGBP,
+       c.EstMonthlyCarbonKg                                                       AS CarbonKg,
+       CAST(100.0 * c.EstMonthlyGBP      / NULLIF(c.MonthSpendGBP, 0) AS DECIMAL(5,1)) AS SpendSharePct,
+       CAST(100.0 * c.EstMonthlyCarbonKg / NULLIF(c.MonthCarbonKg, 0) AS DECIMAL(5,1)) AS CarbonSharePct,
+       RANK() OVER (PARTITION BY c.CustomerId, c.SpendMonth ORDER BY c.EstMonthlyCarbonKg DESC) AS CarbonRank,
+       c.PrevMonthCarbonKg,
+       CAST(c.EstMonthlyCarbonKg - c.PrevMonthCarbonKg AS DECIMAL(12,2))          AS ChangeKg,
+       CAST(100.0 * (c.EstMonthlyCarbonKg - c.PrevMonthCarbonKg)
+            / NULLIF(c.PrevMonthCarbonKg, 0) AS DECIMAL(7,1))                     AS ChangePct
+FROM c;
+GO
+
+/* Carbon per (sub-)category, ranked within the month: shows what drives
+   the footprint, e.g. Fuel or Gas rather than just Travel or Utilities. */
+CREATE OR ALTER VIEW dbo.vw_TopSubCategories AS
+SELECT m.CustomerId,
+       m.SpendMonth,
+       h.TopCategoryName                                                          AS MainCategory,
+       h.Name                                                                     AS Category,
+       m.EstMonthlyGBP                                                            AS SpendGBP,
+       CAST(m.EstMonthlyGBP * ef.KgCO2ePerGBP AS DECIMAL(12,2))                   AS CarbonKg,
+       RANK() OVER (PARTITION BY m.CustomerId, m.SpendMonth
+                    ORDER BY m.EstMonthlyGBP * ef.KgCO2ePerGBP DESC)              AS CarbonRank
+FROM dbo.vw_EstimatedMonthlySpend m
+JOIN dbo.vw_CategoryHierarchy h          ON h.CategoryId  = m.CategoryId
+JOIN dbo.vw_EffectiveEmissionsFactors ef ON ef.CategoryId = m.CategoryId;
+GO
+
+/* Sprint 3 - recommendations. One row per customer, month and main category
+   that is over its monthly threshold:
+   - the general advice and the saving come from RecommendationRules
+     (saving = monthly spend x reduction %, carbon saved = monthly carbon x reduction %)
+   - FocusSubCategory = the sub-category with the most carbon in that main category,
+     with its lower-carbon alternative and practical action from RecommendationActions
+   - Priority 1 = the recommendation that saves the most carbon that month.
+   Customers under the threshold get no row. */
+CREATE OR ALTER VIEW dbo.vw_Recommendations AS
+WITH trig AS (
+    SELECT m.CustomerId, m.SpendMonth, m.CategoryId, m.Category,
+           m.EstMonthlyGBP, m.EstMonthlyCarbonKg,
+           r.MonthlyThresholdGBP, r.RecommendationText, r.ReductionPercentage
+    FROM dbo.vw_MonthlyByMainCategory m
+    JOIN dbo.RecommendationRules r ON r.CategoryId = m.CategoryId
+    WHERE m.EstMonthlyGBP > r.MonthlyThresholdGBP
+), topsub AS (
+    SELECT s.CustomerId, s.SpendMonth, h.TopCategoryId, h.CategoryId, h.Name,
+           ROW_NUMBER() OVER (PARTITION BY s.CustomerId, s.SpendMonth, h.TopCategoryId
+                              ORDER BY s.EstMonthlyGBP * ef.KgCO2ePerGBP DESC, h.CategoryId) AS rn
+    FROM dbo.vw_EstimatedMonthlySpend s
+    JOIN dbo.vw_CategoryHierarchy h          ON h.CategoryId  = s.CategoryId
+    JOIN dbo.vw_EffectiveEmissionsFactors ef ON ef.CategoryId = s.CategoryId
+    WHERE h.CategoryLevel = 2
+)
+SELECT t.CustomerId,
+       t.SpendMonth,
+       t.CategoryId,
+       t.Category,
+       t.EstMonthlyGBP                                                        AS SpendGBP,
+       t.MonthlyThresholdGBP                                                  AS ThresholdGBP,
+       CAST(t.EstMonthlyGBP - t.MonthlyThresholdGBP AS DECIMAL(10,2))         AS OverThresholdGBP,
+       t.EstMonthlyCarbonKg                                                   AS CarbonKg,
+       t.RecommendationText                                                   AS Recommendation,
+       ts.Name                                                                AS FocusSubCategory,
+       a.LowerCarbonAlternative,
+       a.ActionText                                                           AS Action,
+       a.Source                                                               AS ActionSource,
+       t.ReductionPercentage,
+       CAST(t.EstMonthlyGBP      * t.ReductionPercentage AS DECIMAL(10,2))    AS SavingGBP,
+       CAST(t.EstMonthlyCarbonKg * t.ReductionPercentage AS DECIMAL(10,2))    AS CarbonSavedKg,
+       RANK() OVER (PARTITION BY t.CustomerId, t.SpendMonth
+                    ORDER BY t.EstMonthlyCarbonKg * t.ReductionPercentage DESC) AS Priority
+FROM trig t
+LEFT JOIN topsub ts ON ts.CustomerId = t.CustomerId AND ts.SpendMonth = t.SpendMonth
+                   AND ts.TopCategoryId = t.CategoryId AND ts.rn = 1
+LEFT JOIN dbo.RecommendationActions a ON a.CategoryId = ts.CategoryId;
 GO

@@ -6,7 +6,7 @@
 SELECT * FROM dbo.vw_CategoryHierarchy ORDER BY TopCategoryId, CategoryLevel, Name;
 SELECT * FROM dbo.vw_EffectiveEmissionsFactors ORDER BY CategoryId;   -- which factor each category uses
 SELECT * FROM dbo.Assumptions;
-SELECT COUNT(*) AS SpendingRows FROM dbo.Spending;   -- 0 until spending is uploaded; 27 per month after test_spending.sql (v1)
+SELECT COUNT(*) AS SpendingRows FROM dbo.Spending;   -- 0 until spending is uploaded; 27 after test_spending.sql (v1), +476 after sample_spending.sql
 
 -- 2. Weekly carbon impact (any category level; NULL carbon = not tracked)
 SELECT s.CustomerId, s.SpendMonth, s.WeekNumber, h.TopCategoryName AS MainCategory, h.Name AS Category,
@@ -83,3 +83,51 @@ FROM dbo.Spending s JOIN dbo.Categories c ON c.CategoryId = s.CategoryId
 WHERE s.WeekNumber IS NOT NULL
   AND s.AmountGBP > 2 * (SELECT AVG(AmountGBP) FROM dbo.Spending s2
                          WHERE s2.CategoryId = s.CategoryId AND s2.WeekNumber IS NOT NULL);
+
+-- 7. Sprint 3 insights: examples and checks (each check should return no rows)
+SELECT * FROM dbo.vw_CustomerMonthlyFootprint ORDER BY CustomerId, SpendMonth;
+SELECT * FROM dbo.vw_CategoryInsights ORDER BY CustomerId, SpendMonth, CarbonRank;
+SELECT * FROM dbo.vw_TopSubCategories WHERE CarbonRank <= 3 ORDER BY CustomerId, SpendMonth, CarbonRank;
+
+-- The monthly total must equal the sum of its categories
+SELECT f.CustomerId, f.SpendMonth, f.TotalCarbonKg, SUM(c.CarbonKg) AS SumOfCategories
+FROM dbo.vw_CustomerMonthlyFootprint f
+JOIN dbo.vw_CategoryInsights c ON c.CustomerId = f.CustomerId AND c.SpendMonth = f.SpendMonth
+GROUP BY f.CustomerId, f.SpendMonth, f.TotalCarbonKg
+HAVING ABS(f.TotalCarbonKg - SUM(c.CarbonKg)) > 0.01;
+
+-- Category shares must add up to about 100% (rounding allowed)
+SELECT CustomerId, SpendMonth, SUM(SpendSharePct) AS SpendShareTotal, SUM(CarbonSharePct) AS CarbonShareTotal
+FROM dbo.vw_CategoryInsights
+GROUP BY CustomerId, SpendMonth
+HAVING ABS(SUM(SpendSharePct) - 100) > 0.5 OR ABS(SUM(CarbonSharePct) - 100) > 0.5;
+
+-- Every customer-month must have a category ranked 1
+SELECT CustomerId, SpendMonth
+FROM dbo.vw_CategoryInsights
+GROUP BY CustomerId, SpendMonth
+HAVING MIN(CarbonRank) <> 1;
+
+-- The UK average must be set, otherwise VsUkAvgPct is empty
+SELECT N'UkAvgMonthlyKgPerPerson missing' AS Problem
+WHERE NOT EXISTS (SELECT 1 FROM dbo.Assumptions WHERE Name = N'UkAvgMonthlyKgPerPerson');
+
+-- 8. Sprint 3 recommendations: example and checks (each check should return no rows)
+SELECT * FROM dbo.vw_Recommendations ORDER BY CustomerId, SpendMonth, Priority;
+
+-- Actions must be on sub-categories (the main-category rule handles the rest)
+SELECT a.ActionId, c.Name AS ActionOnMainCategory
+FROM dbo.RecommendationActions a JOIN dbo.Categories c ON c.CategoryId = a.CategoryId
+WHERE c.ParentCategoryId IS NULL;
+
+-- Every carbon-tracked sub-category under a main category with a rule needs an action
+SELECT c.CategoryId, c.Name AS SubCategoryWithoutAction
+FROM dbo.Categories c
+JOIN dbo.RecommendationRules r ON r.CategoryId = c.ParentCategoryId
+LEFT JOIN dbo.RecommendationActions a ON a.CategoryId = c.CategoryId
+WHERE c.IsCarbonTracked = 1 AND a.ActionId IS NULL;
+
+-- Nobody under a threshold gets a recommendation
+SELECT CustomerId, SpendMonth, Category
+FROM dbo.vw_Recommendations
+WHERE SpendGBP <= ThresholdGBP;

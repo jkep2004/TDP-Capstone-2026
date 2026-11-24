@@ -1,6 +1,5 @@
 # Data Documentation
 
-Owner: Data Engineer (Yihong Wang)
 
 ## 1. Data sources
 
@@ -11,6 +10,8 @@ Owner: Data Engineer (Yihong Wang)
 | Shopping threshold | [ONS *Family spending in the UK, April 2024 to March 2025*](https://www.ons.gov.uk/peoplepopulationandcommunity/personalandhouseholdfinances/expenditure/bulletins/familyspendingintheuk/april2024tomarch2025) | Monthly: Shopping £250 (see section 3) |
 | Recommendation logic and examples | Appendix B - Recommendation Engine Examples (project brief in [`Capstone-PDFs`](../Capstone-PDFs)) | Rule-based; savings and carbon formulas |
 | Emission factors | [**UK Government (Defra / University of Leeds), "UK and England's carbon footprint to 2023" - Spend-based emissions multipliers**](https://www.gov.uk/government/statistics/uks-carbon-footprint), sheet `COICOP_multipliers_2023` (published 30 June 2026, Open Government Licence 3.0) | kgCO2e per £, **including VAT**. COICOP is the household-spending classification, so it fits customer spending |
+| Sample spending (Sprint 3) | Made up by the data engineer: `sample_spending.sql` | 8 customers with different spending patterns, Sep-Nov 2026, saved against sub-categories. Expected results in [`sample_expected_results.md`](sample_expected_results.md) |
+| UK average footprint | [UK Gov, *Carbon footprint for the UK and England to 2023*](https://www.gov.uk/government/statistics/uks-carbon-footprint/carbon-footprint-for-the-uk-and-england-to-2023) | 631 kg per person per month (section 3) |
 
 No real customer data is used. All data is synthetic or test data.
 
@@ -24,10 +25,15 @@ No real customer data is used. All data is synthetic or test data.
 | `Customers` | One row per customer. `CustomerId` is the Microsoft Entra user ID (a UUID), filled in by the API at sign-in. The 4 test customers use fixed IDs `00000000-0000-0000-0000-000000000001` to `...004` |
 | `Spending` | One row per customer, category, month and week. `CategoryId` can be a main category or a sub-category. `SpendMonth` = month the user selects; `WeekNumber` = week 1-5 for CSV uploads, empty (NULL) for a manual whole-month total |
 | `RecommendationRules` | Monthly threshold, recommendation text and reduction % per **main** category |
+| `RecommendationActions` | A lower-carbon alternative and a practical action per **sub**-category, with its source (Sprint 3) |
 | `vw_CategoryHierarchy` (view) | Each category with its main category |
 | `vw_EffectiveEmissionsFactors` (view) | The factor each category uses: its own latest factor, otherwise its main category's; empty if not carbon-tracked |
 | `vw_EstimatedMonthlySpend` (view) | Monthly spend per customer, category and month: the manual total if entered, otherwise weekly average x 4.33 |
 | `vw_MonthlyByMainCategory` (view) | Monthly spend and carbon per customer and main category, with sub-categories added up. Used for thresholds, recommendations and the dashboard |
+| `vw_CustomerMonthlyFootprint` (view) | Total spend and carbon per customer and month, kg CO2e per £, change from the previous month, and comparison with the UK average |
+| `vw_CategoryInsights` (view) | Each main category's spend and carbon, its share of the month (%), its rank by carbon, and change from the previous month |
+| `vw_Recommendations` (view) | One row per main category over its threshold: advice, the sub-category to focus on, its alternative and action, £ saved, kg CO2e saved and priority |
+| `vw_TopSubCategories` (view) | Carbon per sub-category, ranked within the month, to show what drives the footprint (e.g. Gas rather than Utilities) |
 
 ### What's in the database (after `seed.sql` and `test_spending.sql`)
 
@@ -36,9 +42,12 @@ No real customer data is used. All data is synthetic or test data.
 | `Categories` | 19 | 6 main categories + 13 sub-categories |
 | `EmissionsFactors` | 18 | One factor per category, except Mortgage (not carbon-tracked) |
 | `RecommendationRules` | 4 | Travel, Food, Utilities, Shopping |
-| `Assumptions` | 11 | Calculation rules (weeks per month, thresholds, reduction %) |
+| `RecommendationActions` | 11 | One per sub-category under Travel, Food, Utilities and Shopping |
+| `Assumptions` | 12 | Calculation rules (weeks per month, thresholds, reduction %, UK average) |
 | `Customers` | 4 | Test customers 1-4 (fixed UUIDs ending in 1-4) |
 | `Spending` | 27 | Test data v1: 3 customers x 3 weeks x 3 main categories (0 if only `seed.sql` is run) |
+
+After `sample_spending.sql` as well: `Customers` 12 and `Spending` 503 (27 + 476).
 
 | Main category | Sub-categories | kgCO2e per £ (main) | Monthly threshold | Reduction % | Advice when over threshold |
 |---|---|---|---|---|---|
@@ -134,6 +143,40 @@ MonthlySpend = manual monthly total, if the user entered one
 - 4.33 is stored in the `Assumptions` table as `WeeksPerMonth`, so the rule is documented and can be changed.
 - The month is required: spending without a month cannot be compared to the monthly thresholds or shown on the progress page.
 
+### Carbon insights (Sprint 3)
+
+The insight views follow what UK banks already show customers. NatWest's Carbon Footprint Tracker (with Cogo) shows a monthly footprint, the impact of each transaction, a comparison with the UK monthly average and tips. Starling's Spending Insights shows spending by category and merchant each month and each category's share.
+
+| Insight | View | Example from the sample data |
+|---|---|---|
+| Monthly footprint | `vw_CustomerMonthlyFootprint` | Family (C102): 2,408 kg in November |
+| Share by category (%) | `vw_CategoryInsights` | Student (C104), October: the laptop is half of the month's carbon |
+| Biggest categories | `vw_CategoryInsights` (`CarbonRank`), `vw_TopSubCategories` | Retired homeowner (C105): Utilities is first every month, and Gas overtakes Fuel as the top sub-category from October |
+| Change from last month | both views (`ChangeKg`, `ChangePct`) | Green switcher (C107): total down 22% in October and 28% in November |
+| Carbon per £ | `vw_CustomerMonthlyFootprint` (`KgCO2ePerGBP`) | Retired homeowner 1.3 kg per £ vs student 0.4-0.7: heating is high-carbon spend |
+| vs UK average | `vw_CustomerMonthlyFootprint` (`VsUkAvgPct`) | Student (C104) is 31% below the average in September |
+
+**UK average.** In 2023 the UK footprint was 699 MtCO2e, about 10 tonnes per person. The household part is 407 MtCO2e (goods and services) + 122 MtCO2e (heating and driving) = 529 MtCO2e. 529 / 699 x 10,000 kg / 12 = about **631 kg per person per month**, stored in `Assumptions` as `UkAvgMonthlyKgPerPerson`.
+
+**Limitations**
+- The UK average is per person; some sample customers are households (e.g. the family), so they look higher than they would per person.
+- The app only counts the categories it tracks, so the comparison is rough, as in the banks' own trackers.
+- "Previous month" means the customer's previous month with data, so a missing month is skipped, not treated as zero.
+
+### Recommendations (Sprint 3)
+
+Recommendations are rule-based, so every one can be explained:
+
+1. **When:** a main category's monthly spend is over its threshold (`RecommendationRules`, from Appendix A and ONS).
+2. **What to change:** the sub-category with the most carbon in that main category, e.g. Fuel inside Travel or Gas inside Utilities.
+3. **Lower-carbon alternative and action:** from `RecommendationActions`, one per sub-category, each with its source (Appendix B, WRAP, Energy Saving Trust or team decision).
+4. **Saving:** monthly spend × reduction %, and the same for carbon (Appendix B). Money and carbon savings are shown side by side.
+5. **Priority:** recommendations are ranked by carbon saved, so the customer sees the biggest win first.
+
+Example (car commuter, September): Travel £411.66 is £111.66 over the £300 threshold. Most of it is Fuel, so the advice is to car share or take the bus or train. Saving: £57.63 and 159.91 kg CO2e a month. It is priority 1 because it saves the most carbon.
+
+Housing and Other have no rule, so no recommendations. AI is not used to write recommendations: all text comes from the tables above.
+
 ## 4. Data quality
 
 | Dimension | Check | How it is enforced |
@@ -160,5 +203,6 @@ Connection details go in your local `.env` (never commit it). Then run, in order
 1. `schema.sql` - creates the tables and views (drops existing tables first, so tell the team before running).
 2. `seed.sql` - reference data (categories, emission factors, assumptions, customers, rules). No spending.
 3. `test_spending.sql` - optional, for testing: loads v1 of the test data for the month set in `@SpendMonth` (27 rows).
-4. `queries.sql` - checks the data and data quality. Expected: 19 categories, 27 spending rows after step 3, and every data-quality check returns no rows.
+4. `sample_spending.sql` - optional, Sprint 3 sample data: 8 customers, Sep-Nov 2026 (476 rows). Expected results in `docs/sample_expected_results.md`.
+5. `queries.sql` - checks the data and data quality. Expected: 19 categories, 27 spending rows after step 3, and every data-quality check returns no rows.
 
