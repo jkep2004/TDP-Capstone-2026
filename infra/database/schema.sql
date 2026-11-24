@@ -323,3 +323,22 @@ LEFT JOIN topsub ts ON ts.CustomerId = t.CustomerId AND ts.SpendMonth = t.SpendM
                    AND ts.TopCategoryId = t.CategoryId AND ts.rn = 1
 LEFT JOIN dbo.RecommendationActions a ON a.CategoryId = ts.CategoryId;
 GO
+
+/* Total potential saving per customer and month if every recommendation is
+   followed, so the API and front end don't add up the rows themselves.
+   Months with no recommendation return 0, not a missing row. */
+CREATE OR ALTER VIEW dbo.vw_MonthlySavingsSummary AS
+SELECT f.CustomerId,
+       f.SpendMonth,
+       f.TotalCarbonKg,
+       COUNT(r.CategoryId)                                                      AS RecommendationCount,
+       CAST(ISNULL(SUM(r.SavingGBP), 0) AS DECIMAL(10,2))                       AS TotalSavingGBP,
+       CAST(ISNULL(SUM(r.CarbonSavedKg), 0) AS DECIMAL(12,2))                   AS TotalCarbonSavedKg,
+       CAST(f.TotalCarbonKg - ISNULL(SUM(r.CarbonSavedKg), 0) AS DECIMAL(12,2)) AS FootprintAfterKg,
+       CAST(100.0 * ISNULL(SUM(r.CarbonSavedKg), 0)
+            / NULLIF(f.TotalCarbonKg, 0) AS DECIMAL(5,1))                       AS CarbonSavedPct
+FROM dbo.vw_CustomerMonthlyFootprint f
+LEFT JOIN dbo.vw_Recommendations r
+       ON r.CustomerId = f.CustomerId AND r.SpendMonth = f.SpendMonth
+GROUP BY f.CustomerId, f.SpendMonth, f.TotalCarbonKg;
+GO

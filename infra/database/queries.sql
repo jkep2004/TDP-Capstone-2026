@@ -131,3 +131,20 @@ WHERE c.IsCarbonTracked = 1 AND a.ActionId IS NULL;
 SELECT CustomerId, SpendMonth, Category
 FROM dbo.vw_Recommendations
 WHERE SpendGBP <= ThresholdGBP;
+
+-- 9. Savings summary: example and checks (each check should return no rows)
+SELECT * FROM dbo.vw_MonthlySavingsSummary ORDER BY CustomerId, SpendMonth;
+
+-- One summary row for every customer-month in the footprint
+SELECT f.CustomerId, f.SpendMonth AS MonthMissingFromSummary
+FROM dbo.vw_CustomerMonthlyFootprint f
+LEFT JOIN dbo.vw_MonthlySavingsSummary s ON s.CustomerId = f.CustomerId AND s.SpendMonth = f.SpendMonth
+WHERE s.CustomerId IS NULL;
+
+-- Totals must equal the sum of the recommendation rows
+SELECT s.CustomerId, s.SpendMonth, s.TotalSavingGBP, r.SumSavingGBP
+FROM dbo.vw_MonthlySavingsSummary s
+JOIN (SELECT CustomerId, SpendMonth, SUM(SavingGBP) AS SumSavingGBP, SUM(CarbonSavedKg) AS SumCarbonKg
+      FROM dbo.vw_Recommendations GROUP BY CustomerId, SpendMonth) r
+  ON r.CustomerId = s.CustomerId AND r.SpendMonth = s.SpendMonth
+WHERE s.TotalSavingGBP <> r.SumSavingGBP OR s.TotalCarbonSavedKg <> r.SumCarbonKg;
