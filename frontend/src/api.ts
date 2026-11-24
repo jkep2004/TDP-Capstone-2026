@@ -3,6 +3,7 @@ import { loginRequest } from "./authConfig";
 import type { AccountInfo } from "@azure/msal-browser";
 
 const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
+const insightsApiUrl = (import.meta.env.VITE_INSIGHTS_API_URL || apiUrl).replace(/\/+$/, "");
 
 export async function checkHealth(path: "/health/" | "/health/database") {
   const response = await fetch(`${apiUrl}/api/v1${path}`);
@@ -57,7 +58,8 @@ export async function calculateSpending(spending: SpendingEntry[]) {
 async function exchangeToken(
   account: AccountInfo | undefined =
     msalInstance.getActiveAccount() ??
-    msalInstance.getAllAccounts()[0]
+    msalInstance.getAllAccounts()[0],
+  baseUrl = apiUrl
 ) {
 
   if (!account) {
@@ -69,7 +71,7 @@ async function exchangeToken(
     account
   });
 
-  const authResponse = await fetch(`${apiUrl}/api/v1/auth/`, {
+  const authResponse = await fetch(`${baseUrl}/api/v1/auth/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token: entraToken.accessToken })
@@ -80,6 +82,50 @@ async function exchangeToken(
   }
 
   return authResponse.json() as Promise<{ access_token: string; user: { id: string } }>;
+}
+
+export async function getInsights(account: AccountInfo, signal: AbortSignal) {
+  const { access_token } = await exchangeToken(account, insightsApiUrl);
+  const headers = { Authorization: `Bearer ${access_token}` };
+
+  async function get<T>(path: string, requestSignal: AbortSignal): Promise<T> {
+    const response = await fetch(`${insightsApiUrl}/api/v1/${path}`, { headers, signal: requestSignal });
+    if (!response.ok) throw new Error(`Could not load ${path.split("/")[0]} (HTTP ${response.status}).`);
+    return response.json();
+  }
+
+  const trends = await get<{ months: { month: string; total_carbon_kg: number }[] }>("trends/", signal);
+  return {
+    months: trends.months.map((point) => ({ month: point.month.slice(0, 7), totalCarbonKg: point.total_carbon_kg })),
+    async loadMonth(month: string, monthSignal: AbortSignal) {
+      const query = `?month=${month}-01`;
+      const [summary, recommendations, savings] = await Promise.all([
+        get<{
+          total_carbon_kg: number;
+          categories: { category: string; carbon_kg: number | null }[];
+        }>(`summary/${query}`, monthSignal),
+        get<{ recommendations: {
+          category: string;
+          advice: string;
+          projected_savings_gbp: number;
+          projected_carbon_reduction_kg: number;
+        }[] }>(`recommendations/${query}`, monthSignal),
+        get<{ total_savings_gbp: number; total_carbon_reduction_kg: number }>(`savings/${query}`, monthSignal),
+      ]);
+      return {
+        month,
+        totalCarbonKg: summary.total_carbon_kg,
+        categories: summary.categories.map((item) => ({ name: item.category, carbonKg: item.carbon_kg })),
+        recommendations: recommendations.recommendations.map((item) => ({
+          category: item.category,
+          advice: item.advice,
+          savingsGbp: item.projected_savings_gbp,
+          savingsKg: item.projected_carbon_reduction_kg,
+        })),
+        savings: { gbp: savings.total_savings_gbp, kg: savings.total_carbon_reduction_kg },
+      };
+    },
+  };
 }
 
 export async function saveSpending(

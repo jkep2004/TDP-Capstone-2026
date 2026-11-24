@@ -9,6 +9,7 @@ import { loginRequest } from './authConfig'
 import { callApi } from './api'
 import SpendingPage from './SpendingPage'
 import ApiHealth from './ApiHealth'
+import InsightsPage from './InsightsPage'
 import './App.css'
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [apiResult, setApiResult] = useState<{ accountId: string; error?: string }>()
   const account = accounts[0]
+  const [section, setSection] = useState<'spending' | 'insights'>('spending')
   const currentApiResult = apiResult?.accountId === account?.homeAccountId ? apiResult : undefined
 
   useEffect(() => {
@@ -113,7 +115,16 @@ function App() {
         <button type="button" onClick={logout}>Sign out</button>
       </header>
       <ApiHealth />
-      <SpendingPage account={account} />
+      <nav className="insights-nav" aria-label="Account sections">
+        <button className="mode-button" type="button" aria-pressed={section === 'spending'} onClick={() => setSection('spending')}>
+          Spending
+        </button>
+        <button className="mode-button" type="button" aria-pressed={section === 'insights'} onClick={() => setSection('insights')}>
+          Insights
+        </button>
+      </nav>
+      <div hidden={section !== 'spending'}><SpendingPage account={account} /></div>
+      {section === 'insights' && account && <InsightsPage key={account.homeAccountId} account={account} />}
     </>
   )
 }
