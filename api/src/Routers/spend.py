@@ -15,7 +15,36 @@ router = APIRouter(prefix="/spend")
 @router.post(
     "/",
     summary="Create a new spend entry",
-    description="Creates a new spend entry in the database."
+    description="Creates a new spend entry in the database.",
+    responses={
+        200: {
+            "description": "Spend entry created successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "message": "Spend entry created successfully",
+                        "spendingId": 123
+                    }
+                }
+            }
+        },
+        422: {
+            "description": "Invalid category or subcategory",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Invalid category ID"}
+                }
+            }
+        },
+        500: {
+            "description": "Failed to create spend entry",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Failed to create spend entry"}
+                }
+            }
+        },
+    }
 )
 def create_spend_entry(
     spend_data: SpendingItem,
@@ -23,7 +52,13 @@ def create_spend_entry(
     user=Depends(get_current_user),
 ):
     customer_id = user["user_id"]
-    parent_category_id = spend_data.category
+    parent_category_id = spend_data.categoryID
+    
+    if spend_data.CustomerID != customer_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Customer ID does not match authenticated user"
+        )
 
     try:
         # Confirm that the parent category exists
@@ -47,7 +82,7 @@ def create_spend_entry(
         # Default to the parent category if no subcategory was supplied
         spending_category_id = parent_category_id
 
-        if spend_data.subcategory is not None:
+        if spend_data.subcategoryID is not None:
             # Resolve the subcategory to its own CategoryId
             subcategory_query = text("""
                 SELECT CategoryId
@@ -60,7 +95,7 @@ def create_spend_entry(
                 subcategory_query,
                 {
                     "parent_category_id": parent_category_id,
-                    "subcategory": spend_data.subcategory,
+                    "subcategory": spend_data.subcategoryID,
                 }
             ).first()
 

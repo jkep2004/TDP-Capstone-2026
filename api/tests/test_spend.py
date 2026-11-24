@@ -667,7 +667,7 @@ def test_subcategory_is_converted_to_lowercase(
 
     item = SpendingItem(**valid_payload)
 
-    assert item.subcategory == "flights"
+    assert item.subcategoryID == "flights"
 
 
 def test_empty_subcategory_is_converted_to_none(
@@ -677,7 +677,7 @@ def test_empty_subcategory_is_converted_to_none(
 
     item = SpendingItem(**valid_payload)
 
-    assert item.subcategory is None
+    assert item.subcategoryID is None
 
 
 def test_none_subcategory_is_accepted(
@@ -687,7 +687,7 @@ def test_none_subcategory_is_accepted(
 
     item = SpendingItem(**valid_payload)
 
-    assert item.subcategory is None
+    assert item.subcategoryID is None
 
 
 def test_non_string_subcategory_is_rejected(

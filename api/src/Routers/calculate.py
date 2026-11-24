@@ -30,7 +30,7 @@ def calculate(
                 WHERE CategoryId = :category_id
                   AND ParentCategoryId IS NULL
             """),
-            {"category_id": item.category},
+            {"category_id": item.categoryID},
         ).first()
 
         if category_result is None:
@@ -40,7 +40,7 @@ def calculate(
             )
 
         # Check that a supplied subcategory belongs to the category.
-        if item.subcategory is not None:
+        if item.subcategoryID is not None:
             subcategory_result = db.execute(
                 text("""
                     SELECT CategoryId
@@ -49,8 +49,8 @@ def calculate(
                       AND LOWER(Name) = :subcategory
                 """),
                 {
-                    "parent_category_id": item.category,
-                    "subcategory": item.subcategory,
+                    "parent_category_id": item.categoryID,
+                    "subcategory": item.subcategoryID,
                 },
             ).first()
 
@@ -61,8 +61,8 @@ def calculate(
                 )
 
         breakdown.append({
-            "category": item.category,
-            "subcategory": item.subcategory,
+            "category": item.categoryID,
+            "subcategory": item.subcategoryID,
             "amount": item.amount,
             "week": item.week,
             "carbonKg": 0,
