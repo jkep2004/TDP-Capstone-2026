@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
-from ..schemas.calculateRequest import CalculateRequest
+from ..schemas.CalculateRequest import CalculateRequest
+from ..schemas.CalculateResponse import CalculateResponse
 
 router = APIRouter(
     prefix="/calculate"
@@ -12,7 +13,7 @@ router = APIRouter(
     description="""
     Calculates the carbon footprint based on the provided spending data.
     """,
-    response_model=calculateResponse,
+    response_model=CalculateResponse,
     responses={
         200: {
             "description": "Successful Response",
