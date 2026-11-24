@@ -17,8 +17,6 @@ test_rows = [
      pytest.param({"spending" : [{"CustomerID": 7,  "category": "travel",     "subcategory": "public transport",        "amount": 2132,  "week": 3}]}, 200),
      pytest.param({"spending" : [{"CustomerID": 8,  "category": "travel",     "subcategory": "public  transport",       "amount": 2132,  "week": 3}]}, 422),
      pytest.param({"spending" : [{"CustomerID": 1,  "category": "travel",     "subcategory": "FLIGHTS",                 "amount": 2132,  "week": 3}]}, 200)
-
-
     ]
 
 

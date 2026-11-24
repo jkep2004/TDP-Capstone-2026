@@ -89,7 +89,7 @@ function App() {
             account: accounts[0]
           });
           if (token) {
-            await fetch("http://localhost:8000/api/v1/auth", {
+            let response = await fetch("http://localhost:8000/api/v1/auth/", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json"
@@ -97,9 +97,10 @@ function App() {
               body: JSON.stringify({
                 token: token.accessToken
               })
-            });
+            }).then(res => res.json());
             // DEBUG
             console.log("Token sent to backend:", token.accessToken);
+            console.log("Token received from backend:", response);
           }
         }}>
           DEBUG: Send token to backend

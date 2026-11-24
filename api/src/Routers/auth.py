@@ -1,6 +1,10 @@
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+import jwt
 from pydantic import BaseModel, Field
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from ..Core.auth import (
     validate_entra_token,
@@ -8,6 +12,7 @@ from ..Core.auth import (
 )
 from ..schemas.AuthRequest import AuthRequest
 from ..schemas.AuthResponse import AuthResponse
+from database.database import get_db
 
 router = APIRouter(
     prefix="/auth"
@@ -51,7 +56,10 @@ router = APIRouter(
         },
     },
 )
-def authenticate(request: AuthRequest):
+def authenticate(
+    request: AuthRequest,
+    db: Session = Depends(get_db)
+):
 
     entra_user = validate_entra_token(
         request.token
@@ -70,6 +78,27 @@ def authenticate(request: AuthRequest):
     access_token, expires_in = create_access_token(
         user
     )
+    
+    try:
+        SQL_EXISTS = f"SELECT COUNT(*) FROM Customers WHERE CustomerId = '{user['user_id']}'"
+        result = db.execute(text(SQL_EXISTS)).fetchone()
+        if result[0] == 0:
+            dataSource = "ENTRA"
+            SQL_INSERT = f"INSERT INTO Customers (CustomerId, DataSource) VALUES ('{user['user_id']}', '{dataSource}')"
+            db.execute(text(SQL_INSERT))
+            db.commit()
+            
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=500,
+            detail="Database error: {}".format(str(e))
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail="Database connection error: {}".format(str(e))
+        )
 
     return {
         "access_token": access_token,
