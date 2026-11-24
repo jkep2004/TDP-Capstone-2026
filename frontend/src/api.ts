@@ -12,14 +12,25 @@ export async function checkHealth(path: "/health/" | "/health/database") {
   return response.json() as Promise<{ status: string; version: string }>;
 }
 
-export type SpendingCategory = "travel" | "food" | "utilities";
+export type Category = { id: number; name: string; parent_id: number | null };
 
-export async function calculateSpending(spending: {
-  CustomerID: number;
+export async function getCategories(): Promise<Category[]> {
+  const response = await fetch(`${apiUrl}/api/v1/categories/`);
+  if (!response.ok) {
+    throw new Error(`Could not load categories (HTTP ${response.status})`);
+  }
+  return response.json();
+}
+
+type SpendingEntry = {
+  customerID: string;
+  month: string;
   week: number;
-  category: SpendingCategory;
+  categoryID: number;
   amount: number;
-}[]) {
+};
+
+export async function calculateSpending(spending: SpendingEntry[]) {
   const response = await fetch(`${apiUrl}/api/v1/calculate/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -30,11 +41,11 @@ export async function calculateSpending(spending: {
   }
   return response.json() as Promise<{
     totalCarbonKg: number;
-    breakdown: { category: SpendingCategory; amount: number; carbonKg: number }[];
+    breakdown: { category: number; amount: number; carbonKg: number }[];
   }>;
 }
 
-export async function callApi(
+async function exchangeToken(
   account: AccountInfo | undefined =
     msalInstance.getActiveAccount() ??
     msalInstance.getAllAccounts()[0]
@@ -59,7 +70,27 @@ export async function callApi(
     throw new Error(`Token exchange failed (${authResponse.status})`);
   }
 
-  const { access_token: appToken } = await authResponse.json();
+  return authResponse.json() as Promise<{ access_token: string; user: { id: string } }>;
+}
+
+export async function saveSpending(entry: Omit<SpendingEntry, "customerID">, account: AccountInfo) {
+  const session = await exchangeToken(account);
+  const response = await fetch(`${apiUrl}/api/v1/spend/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`
+    },
+    body: JSON.stringify({ ...entry, customerID: session.user.id })
+  });
+  if (!response.ok) {
+    throw new Error(`Save failed (HTTP ${response.status})`);
+  }
+  return response.json() as Promise<{ spendingId: number }>;
+}
+
+export async function callApi(account?: AccountInfo) {
+  const { access_token: appToken } = await exchangeToken(account);
   const userResponse = await fetch(`${apiUrl}/api/user`, {
     headers: { Authorization: `Bearer ${appToken}` }
   });

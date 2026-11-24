@@ -1,20 +1,24 @@
 import { useState } from 'react'
 import { parseSpendingCsv } from './utils/parseSpendingCsv'
 import type { SpendingRow } from './utils/parseSpendingCsv'
-import { calculateSpending } from './api'
+import { calculateSpending, getCategories } from './api'
 
 const categories = ['travel', 'food', 'utilities'] as const
 
 type CsvUploadProps = {
   month: string
+  customerId?: string
 }
 
-function CsvUpload({ month }: CsvUploadProps) {
+function CsvUpload({ month, customerId }: CsvUploadProps) {
   const [file, setFile] = useState<File | null>(null)
   const [rows, setRows] = useState<SpendingRow[]>([])
   const [isReading, setIsReading] = useState(false)
   const [error, setError] = useState('')
-  const [calculation, setCalculation] = useState<Awaited<ReturnType<typeof calculateSpending>>>()
+  const [calculation, setCalculation] = useState<{
+    totalCarbonKg: number
+    categoryTotals: { category: string; carbonKg: number }[]
+  }>()
   const [isCalculating, setIsCalculating] = useState(false)
   const [calculationError, setCalculationError] = useState('')
 
@@ -24,18 +28,37 @@ function CsvUpload({ month }: CsvUploadProps) {
   }
 
   const calculate = async () => {
+    if (!month || !customerId) return
     clearCalculation()
     setIsCalculating(true)
     try {
+      if (rows.some((row) => row.week > 5)) {
+        throw new Error('Calculation requires week numbers from 1 to 5 within the selected month.')
+      }
+      const available = await getCategories()
+      const categoryIds = categories.map((category) => {
+        const match = available.find((item) => item.parent_id === null && item.name.toLowerCase() === category)
+        if (!match) throw new Error(`The API does not offer the ${category} category.`)
+        return { category, categoryID: match.id }
+      })
       const spending = rows.flatMap((row) =>
-        categories.map((category) => ({
-          CustomerID: row.customer_id,
+        categoryIds.map(({ category, categoryID }) => ({
+          customerID: customerId,
+          month: `${month}-01`,
           week: row.week,
-          category,
+          categoryID,
           amount: row[category],
         }))
       )
-      setCalculation(await calculateSpending(spending))
+      const result = await calculateSpending(spending)
+      setCalculation({
+        totalCarbonKg: result.totalCarbonKg,
+        categoryTotals: categoryIds.map(({ category, categoryID }) => ({
+          category,
+          carbonKg: result.breakdown.filter((item) => item.category === categoryID)
+            .reduce((total, item) => total + item.carbonKg, 0),
+        })),
+      })
     } catch (error) {
       setCalculationError(error instanceof Error ? error.message : 'Calculation failed.')
     } finally {
@@ -215,7 +238,7 @@ function CsvUpload({ month }: CsvUploadProps) {
             no dates, so it cannot confirm coverage of the selected
             month.
           </p>
-          <button type="button" onClick={calculate} disabled={isCalculating}>
+          <button type="button" onClick={calculate} disabled={isCalculating || !month || !customerId}>
             {isCalculating ? 'Calculating…' : 'Calculate carbon impact'}
           </button>
           {calculationError && <p role="alert">{calculationError}</p>}
@@ -223,11 +246,9 @@ function CsvUpload({ month }: CsvUploadProps) {
             <div role="status">
               <p>Total carbon impact: <strong>{calculation.totalCarbonKg} kg CO₂e</strong></p>
               <ul>
-                {categories.map((category) => (
+                {calculation.categoryTotals.map(({ category, carbonKg }) => (
                   <li key={category}>
-                    {category}: {calculation.breakdown
-                      .filter((item) => item.category === category)
-                      .reduce((total, item) => total + item.carbonKg, 0)} kg CO₂e
+                    {category}: {carbonKg} kg CO₂e
                   </li>
                 ))}
               </ul>

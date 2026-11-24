@@ -107,36 +107,13 @@ function App() {
         <span>
           Signed in as <strong>{account?.username ?? 'Microsoft account'}</strong>
         </span>
-        {/* Send post request to /api/v1/auth with token */}
-        <button onClick={async () => {
-          const token = await instance.acquireTokenSilent({
-            ...loginRequest,
-            account: accounts[0]
-          });
-          if (token) {
-            let response = await fetch("http://localhost:8000/api/v1/auth/", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
-                token: token.accessToken
-              })
-            }).then(res => res.json());
-            // DEBUG
-            console.log("Token sent to backend:", token.accessToken);
-            console.log("Token received from backend:", response);
-          }
-        }}>
-          DEBUG: Send token to backend
-        </button>
         {currentApiResult?.error
           ? <span role="alert">{currentApiResult.error}</span>
           : <span role="status">{currentApiResult ? 'API session verified' : 'Verifying API session…'}</span>}
         <button type="button" onClick={logout}>Sign out</button>
       </header>
       <ApiHealth />
-      <SpendingPage />
+      <SpendingPage account={account} />
     </>
   )
 }

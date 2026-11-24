@@ -57,7 +57,7 @@ def create_spend_entry(
     parent_category_id = spend_data.categoryID
     logger.info("Creating spend entry", customer_id=customer_id, category_id=parent_category_id, subcategory_id=spend_data.subcategoryID)
     
-    if spend_data.customerID != customer_id:
+    if str(spend_data.customerID) != str(customer_id).lower():
         logger.error("ERROR: Customer ID does not match authenticated user", customer_id=spend_data.customerID, authenticated_user_id=customer_id)
         raise HTTPException(
             status_code=403,

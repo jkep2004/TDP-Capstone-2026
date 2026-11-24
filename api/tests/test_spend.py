@@ -48,7 +48,7 @@ def get_insert_call(mock_db):
 
 @pytest.fixture
 def customer_id():
-    return uuid.uuid4()
+    return str(uuid.uuid4())
 
 @pytest.fixture
 def mock_db():
