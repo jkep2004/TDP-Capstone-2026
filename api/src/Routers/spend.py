@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -7,9 +8,9 @@ from database.database import get_db
 from ..schemas.SpendingItem import SpendingItem
 from ..Core.auth import get_current_user
 
-router = APIRouter(
-    prefix="/spend"
-)
+
+router = APIRouter(prefix="/spend")
+
 
 @router.post(
     "/",
@@ -21,57 +22,98 @@ def create_spend_entry(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    # TODO: Validate spending item
-
-    # Retrieve values
     customer_id = user["user_id"]
-    category_id = spend_data.category.get_category_id(db)
-    spend_month = spend_data.month
-    week_number = spend_data.week
-    amount_gbp = spend_data.amount
-    
-    print (f"Creating spend entry for customer_id: {customer_id}, category_id: {category_id}, spend_month: {spend_month}, week_number: {week_number}, amount_gbp: {amount_gbp}")
-
-    # Insert into database
-    query = text("""
-        INSERT INTO dbo.Spending (
-            CustomerId,
-            CategoryId,
-            SpendMonth,
-            WeekNumber,
-            AmountGBP,
-            CreatedAt
-        )
-        OUTPUT INSERTED.SpendingId
-        VALUES (
-            :customer_id,
-            :category_id,
-            :spend_month,
-            :week_number,
-            :amount_gbp,
-            SYSDATETIME()
-        )
-    """)
+    parent_category_id = spend_data.category
 
     try:
+        # Confirm that the parent category exists
+        category_query = text("""
+            SELECT CategoryId
+            FROM dbo.Categories
+            WHERE CategoryId = :category_id
+        """)
+
+        category_result = db.execute(
+            category_query,
+            {"category_id": parent_category_id}
+        ).first()
+
+        if category_result is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid category ID"
+            )
+
+        # Default to the parent category if no subcategory was supplied
+        spending_category_id = parent_category_id
+
+        if spend_data.subcategory is not None:
+            # Resolve the subcategory to its own CategoryId
+            subcategory_query = text("""
+                SELECT CategoryId
+                FROM dbo.Categories
+                WHERE ParentCategoryId = :parent_category_id
+                  AND LOWER(Name) = :subcategory
+            """)
+
+            subcategory_result = db.execute(
+                subcategory_query,
+                {
+                    "parent_category_id": parent_category_id,
+                    "subcategory": spend_data.subcategory,
+                }
+            ).first()
+
+            if subcategory_result is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Subcategory does not belong to the selected category"
+                )
+
+            spending_category_id = subcategory_result[0]
+
+        # Insert using the resolved category or subcategory ID
+        insert_query = text("""
+            INSERT INTO dbo.Spending (
+                CustomerId,
+                CategoryId,
+                SpendMonth,
+                WeekNumber,
+                AmountGBP,
+                CreatedAt
+            )
+            OUTPUT INSERTED.SpendingId
+            VALUES (
+                :customer_id,
+                :category_id,
+                :spend_month,
+                :week_number,
+                :amount_gbp,
+                SYSDATETIME()
+            )
+        """)
+
         result = db.execute(
-            query,
+            insert_query,
             {
                 "customer_id": customer_id,
-                "category_id": category_id,
-                "spend_month": spend_month,
-                "week_number": week_number,
-                "amount_gbp": amount_gbp,
+                "category_id": spending_category_id,
+                "spend_month": spend_data.month,
+                "week_number": spend_data.week,
+                "amount_gbp": spend_data.amount,
             }
         )
 
         spending_id = result.scalar_one()
-
         db.commit()
+
+    except HTTPException:
+        db.rollback()
+        raise
 
     except SQLAlchemyError as e:
         db.rollback()
-        print("ERROR: ", e)
+        print("ERROR:", e)
         raise HTTPException(
             status_code=500,
             detail="Failed to create spend entry"

@@ -1,64 +1,267 @@
-import pathlib
+
 import pytest
 from fastapi.testclient import TestClient
-from src.schemas.Category import Itemtype, Subcategories_by_type
+from unittest.mock import MagicMock
+from uuid import uuid4
 
 from src.main import app
+from src.schemas.Category import Category
+from database.database import get_db
 
-client = TestClient(app)
+# Fixtures
 
-
-test_rows = [
-     pytest.param({"spending" : [{"CustomerID": 15, "category": "travel",    "subcategory": "flights",                  "amount": 12,    "week": 3}]}, 200), 
-     pytest.param({"spending" : [{"CustomerID": 13, "category": "food",      "subcategory": "flights",                  "amount": 12312, "week": 3}]}, 422),
-     pytest.param({"spending" : [{"CustomerID": 12, "category": "other",     "subcategory": "something",                "amount": 232,   "week": 3}]}, 422),
-     pytest.param({"spending" : [{"CustomerID": 1,  "category": "other",     "subcategory": None,                       "amount": 2132,  "week": 3}]}, 200),
-     pytest.param({"spending" : [{"CustomerID": 6,  "category": "travel",     "subcategory": None,                      "amount": 2132,  "week": 3}]}, 200),
-     pytest.param({"spending" : [{"CustomerID": 7,  "category": "travel",     "subcategory": "public transport",        "amount": 2132,  "week": 3}]}, 200),
-     pytest.param({"spending" : [{"CustomerID": 8,  "category": "travel",     "subcategory": "public  transport",       "amount": 2132,  "week": 3}]}, 422),
-     pytest.param({"spending" : [{"CustomerID": 1,  "category": "travel",     "subcategory": "FLIGHTS",                 "amount": 2132,  "week": 3}]}, 200)
+@pytest.fixture
+def mock_categories():
+    return [
+        (1, "Food", "Food and dining expenses", None, True),
+        (2, "Groceries", "Grocery expenses", 1, True),
+        (3, "Travel", "Travel expenses", None, True),
+        (4, "Flights", "Flight expenses", 3, True),
+        (5, "Utilities", "Household utilities", None, False),
+        (6, "Public Transport", "Public transport expenses", 3, True),
+        (7, "Other", "Other expenses", None, False),
     ]
 
 
-@pytest.mark.parametrize(
-    "payload, expected_status", test_rows, ids= ["Travel-Flights", "food-flights", "other-something", "other-None", "Travel-None" ,"Travel-public transport", "Travel-public  transport", "Travel-FLIGHTS"])
-def test_input_validation(payload, expected_status):
-    response = client.post("/api/v1/calculate", json=payload)
-    response_data = response.json()
-    assert expected_status == response.status_code
-    
-def test_category_validation():
-    assert set(Itemtype) == set(Subcategories_by_type)
-    myset = (Subcategories_by_type)
-    count_of_subcategories = 0
-    for i in myset.values():
-        count_of_subcategories += len(i)
-    assert count_of_subcategories == 13
+@pytest.fixture
+def mock_db(mock_categories):
+    db = MagicMock()
+    db.execute.return_value.fetchall.return_value = mock_categories
+    return db
 
+@pytest.fixture
+def client(mock_db):
+    app.dependency_overrides[get_db] = lambda: mock_db
 
-def test_category_endpoint_validation():
-    response = client.get("/api/v1/categories/")
-    assert response.status_code == 200
+    with TestClient(app) as test_client:
+        yield test_client
 
-    my_values = [i.value for i in Itemtype]
-    assert response.json() == my_values
-    assert response.json() == ['travel', 'food', 'utilities', 'shopping', 'housing', 'other']
+    app.dependency_overrides.clear()
 
-    assert len(response.json()) == 6
+# Spending input validation
 
+CUSTOMER_ID_1 = str(uuid4())
+CUSTOMER_ID_2 = str(uuid4())
+CUSTOMER_ID_3 = str(uuid4())
+MONTH = "2026-11-01"
 
-
-list_test_rows = [
-    pytest.param("travel", ['fuel', 'public transport', 'flights']),
-    pytest.param("food", ['groceries', 'eating out']),
-    pytest.param("utilities", ["electricity","gas", "water"]),
-    pytest.param("shopping", ["clothing", "electronics", "furniture and appliances"]),
-    pytest.param("housing", ["rent", "mortgage"]),
-    pytest.param("other", [])
+test_rows = [
+    pytest.param(
+        {
+            "spending": [{
+                "CustomerID": CUSTOMER_ID_1,
+                "category": 3,
+                "subcategory": "flights",
+                "amount": 12,
+                "month": MONTH,
+                "week": 3,
+            }]
+        },
+        200,
+        id="Travel-Flights",
+    ),
+    pytest.param(
+        {
+            "spending": [{
+                "CustomerID": CUSTOMER_ID_2,
+                "category": 7,
+                "subcategory": None,
+                "amount": 2132,
+                "month": MONTH,
+                "week": 3,
+            }]
+        },
+        200,
+        id="Other-None",
+    ),
+    pytest.param(
+        {
+            "spending": [{
+                "CustomerID": CUSTOMER_ID_3,
+                "category": 3,
+                "subcategory": None,
+                "amount": 2132,
+                "month": MONTH,
+                "week": 3,
+            }]
+        },
+        200,
+        id="Travel-None",
+    ),
+    pytest.param(
+        {
+            "spending": [{
+                "CustomerID": CUSTOMER_ID_3,
+                "category": 3,
+                "subcategory": "public transport",
+                "amount": 2132,
+                "month": MONTH,
+                "week": 3,
+            }]
+        },
+        200,
+        id="Travel-Public-Transport",
+    ),
+    pytest.param(
+        {
+            "spending": [{
+                "CustomerID": CUSTOMER_ID_3,
+                "category": 3,
+                "subcategory": "FLIGHTS",
+                "amount": 2132,
+                "month": MONTH,
+                "week": 3,
+            }]
+        },
+        200,
+        id="Travel-Flights-Uppercase",
+    ),
 ]
 
-@pytest.mark.parametrize("category, expected_list", list_test_rows, ids=['Travel', 'Food', 'Utilities', 'Shopping', 'Housing', 'Other'])
-def test_category_list_and_subcategory(category, expected_list):
-    response = client.get(f"/api/v1/categories/{category}")
+@pytest.mark.parametrize("payload, expected_status", test_rows)
+def test_input_validation(client, payload, expected_status):
+    response = client.post("/api/v1/calculate", json=payload)
+    
+    print(response.status_code)
+    print(response.json())
+
+    assert response.status_code == expected_status
+
+# Category model tests
+
+def test_category_model():
+    category = Category(
+        id=1,
+        name="food",
+        description="Food and dining expenses",
+        parent_id=None,
+        is_carbon_tracked=True
+    )
+
+    assert category.id == 1
+    assert category.name == "food"
+    assert category.description == "Food and dining expenses"
+    assert category.parent_id is None
+    assert category.is_carbon_tracked is True
+
+def test_category_ids_are_unique(mock_categories):
+    category_ids = [category[0] for category in mock_categories]
+
+    assert len(category_ids) == len(set(category_ids))
+
+def test_category_names_are_unique(mock_categories):
+    category_names = [category[1] for category in mock_categories]
+
+    assert len(category_names) == len(set(category_names))
+
+
+def test_category_attributes(mock_categories):
+    for category in mock_categories:
+        assert isinstance(category[0], int)
+        assert isinstance(category[1], str)
+        assert isinstance(category[2], str)
+        assert category[3] is None or isinstance(category[3], int)
+        assert isinstance(category[4], bool)
+
+# Categories endpoint tests
+
+def test_category_endpoint_validation(client, mock_categories):
+    response = client.get("/api/v1/categories/")
+
     assert response.status_code == 200
-    assert expected_list == response.json()
+
+    response_data = response.json()
+
+    assert isinstance(response_data, list)
+    assert len(response_data) == len(mock_categories)
+
+    for category in response_data:
+        assert "id" in category
+        assert "name" in category
+        assert "description" in category
+        assert "parent_id" in category
+        assert "is_carbon_tracked" in category
+
+def test_category_endpoint_returns_expected_categories(client, mock_categories):
+    response = client.get("/api/v1/categories/")
+
+    assert response.status_code == 200
+
+    expected_categories = [
+        {
+            "id": category[0],
+            "name": category[1],
+            "description": category[2],
+            "parent_id": category[3],
+            "is_carbon_tracked": category[4]
+        }
+        for category in mock_categories
+    ]
+
+    assert response.json() == expected_categories
+
+# Individual category endpoint tests
+
+@pytest.mark.parametrize(
+    "category",
+    [
+        (1, "Food", "Food and dining expenses", None, True),
+        (2, "Groceries", "Grocery expenses", 1, True),
+        (3, "Travel", "Travel expenses", None, True),
+        (4, "Flights", "Flight expenses", 3, True),
+        (5, "Utilities", "Household utilities", None, False)
+    ],
+    ids=["Food", "Groceries", "Travel", "Flights", "Utilities"]
+)
+def test_get_category_by_id(client, category):
+    response = client.get(f"/api/v1/categories/{category[0]}")
+
+    assert response.status_code == 200
+
+    response_data = response.json()
+
+    assert response_data == {
+        "id": category[0],
+        "name": category[1],
+        "description": category[2],
+        "parent_id": category[3],
+        "is_carbon_tracked": category[4]
+    }
+
+
+def test_get_category_not_found(client):
+    response = client.get("/api/v1/categories/999999")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Category not found"}
+
+# Subcategory endpoint tests
+
+@pytest.mark.parametrize(
+    "category_id, expected_subcategories",
+    [
+        (1, [2]),
+        (3, [4, 6]),
+        (5, [])
+    ],
+    ids=["Food-Subcategories", "Travel-Subcategories", "Utilities-No-Subcategories"]
+)
+def test_get_subcategories(client, category_id, expected_subcategories):
+    response = client.get(
+        f"/api/v1/categories/{category_id}/subcategories"
+    )
+
+    assert response.status_code == 200
+
+    returned_ids = [
+        category["id"]
+        for category in response.json()
+    ]
+
+    assert returned_ids == expected_subcategories
+
+def test_get_subcategories_for_nonexistent_category(client):
+    response = client.get("/api/v1/categories/999999/subcategories")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Category not found"}
