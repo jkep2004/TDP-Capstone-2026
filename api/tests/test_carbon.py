@@ -12,9 +12,9 @@ TRAVEL_FACTOR = 2.7747
 
 def make_item(category=3, subcategory=None, amount=100.0, week=1):
     return SpendingItem(
-        CustomerID=uuid.uuid4(),
-        category=category,
-        subcategory=subcategory,
+        customerID=uuid.uuid4(),
+        categoryID=category,
+        subcategoryID=subcategory,
         amount=amount,
         month=date(2026, 11, 1),
         week=week,

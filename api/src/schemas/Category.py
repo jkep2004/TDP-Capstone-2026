@@ -13,7 +13,7 @@ class Category (BaseModel):
     parent_id: int | None
     is_carbon_tracked: bool
     
-def create_categories_from_db(db: Session = Depends(get_db)):
+def create_categories_from_db(db: Session):
     try:
         SQL_GET = "SELECT CategoryId, Name, Description, ParentCategoryId, IsCarbonTracked FROM dbo.Categories"
         result = db.execute(text(SQL_GET)).fetchall()

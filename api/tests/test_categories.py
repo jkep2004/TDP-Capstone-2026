@@ -49,9 +49,9 @@ test_rows = [
     pytest.param(
         {
             "spending": [{
-                "CustomerID": CUSTOMER_ID_1,
-                "category": 3,
-                "subcategory": "flights",
+                "customerID": CUSTOMER_ID_1,
+                "categoryID": 3,
+                "subcategoryID": 4,
                 "amount": 12,
                 "month": MONTH,
                 "week": 3,
@@ -63,9 +63,9 @@ test_rows = [
     pytest.param(
         {
             "spending": [{
-                "CustomerID": CUSTOMER_ID_2,
-                "category": 7,
-                "subcategory": None,
+                "customerID": CUSTOMER_ID_2,
+                "categoryID": 7,
+                "subcategoryID": None,
                 "amount": 2132,
                 "month": MONTH,
                 "week": 3,
@@ -77,9 +77,9 @@ test_rows = [
     pytest.param(
         {
             "spending": [{
-                "CustomerID": CUSTOMER_ID_3,
-                "category": 3,
-                "subcategory": None,
+                "customerID": CUSTOMER_ID_3,
+                "categoryID": 3,
+                "subcategoryID": None,
                 "amount": 2132,
                 "month": MONTH,
                 "week": 3,
@@ -91,9 +91,9 @@ test_rows = [
     pytest.param(
         {
             "spending": [{
-                "CustomerID": CUSTOMER_ID_3,
-                "category": 3,
-                "subcategory": "public transport",
+                "customerID": CUSTOMER_ID_3,
+                "categoryID": 3,
+                "subcategoryID": 6,
                 "amount": 2132,
                 "month": MONTH,
                 "week": 3,
@@ -101,20 +101,6 @@ test_rows = [
         },
         200,
         id="Travel-Public-Transport",
-    ),
-    pytest.param(
-        {
-            "spending": [{
-                "CustomerID": CUSTOMER_ID_3,
-                "category": 3,
-                "subcategory": "FLIGHTS",
-                "amount": 2132,
-                "month": MONTH,
-                "week": 3,
-            }]
-        },
-        200,
-        id="Travel-Flights-Uppercase",
     ),
 ]
 

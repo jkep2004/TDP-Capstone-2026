@@ -8,7 +8,7 @@ from ..schemas.SpendingItem import SpendingItem
 WEEKS_PER_MONTH = 4.3333
 
 
-def resolve_category_id(db, category: int, subcategory: str | None) -> int:
+def resolve_category_id(db, category: int, subcategory_id: int | None) -> int:
     """Return the CategoryId to price: the subcategory's own id if given, else the main category's."""
     category_result = db.execute(
         text("""
@@ -23,7 +23,7 @@ def resolve_category_id(db, category: int, subcategory: str | None) -> int:
     if category_result is None:
         raise HTTPException(status_code=422, detail="Invalid category ID")
 
-    if subcategory is None:
+    if subcategory_id is None:
         return category
 
     subcategory_result = db.execute(
@@ -31,9 +31,9 @@ def resolve_category_id(db, category: int, subcategory: str | None) -> int:
             SELECT CategoryId
             FROM dbo.Categories
             WHERE ParentCategoryId = :parent_category_id
-              AND LOWER(Name) = :subcategory
+              AND CategoryId = :subcategory_id
         """),
-        {"parent_category_id": category, "subcategory": subcategory},
+        {"parent_category_id": category, "subcategory_id": subcategory_id},
     ).first()
 
     if subcategory_result is None:
@@ -77,7 +77,7 @@ def calculate_impact(items: list[SpendingItem], db) -> dict:
     weekly_by_category: dict[int, list[float]] = {}
 
     for item in items:
-        category_id = resolve_category_id(db, item.category, item.subcategory)
+        category_id = resolve_category_id(db, item.categoryID, item.subcategoryID)
         item_category_ids.append(category_id)
         weekly_by_category.setdefault(category_id, []).append(item.amount)
 
@@ -89,8 +89,8 @@ def calculate_impact(items: list[SpendingItem], db) -> dict:
    
     breakdown = [
         {
-            "category": item.category,
-            "subcategory": item.subcategory,
+            "category": item.categoryID,
+            "subcategory": item.subcategoryID,
             "amount": item.amount,
             "week": item.week,
             "carbonKg": round(
