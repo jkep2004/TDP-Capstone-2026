@@ -4,12 +4,23 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
+
 from .Routers import auth, calculate, categories, health, spend
 from .Core.auth import get_current_user
+from .Core.config import check_env_variables
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 STATIC_DIR = BASE_DIR / "static"
+
+try:
+    print("INFO: Checking required environment variables")
+    check_env_variables()  # Check that all required environment variables are set
+except ValueError as e:
+    print(f"ERROR: {str(e)}")
+    raise SystemExit(1)  # Exit the application if environment variables are missing
+else:
+    print("INFO: All required environment variables are set.")
 
 tags_metadata = [
     {
@@ -31,6 +42,18 @@ tags_metadata = [
         Provides spending categories and subcategories.
         """,
     },
+    {
+        "name": "Authentication",
+        "description": """
+        Provides authentication and authorization services.
+        """,
+    },
+    {
+        "name": "Spending",
+        "description": """
+        Provides spending data management services.
+        """,
+    }
 ]
 
 app = FastAPI(
