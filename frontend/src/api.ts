@@ -5,14 +5,6 @@ import type { AccountInfo } from "@azure/msal-browser";
 const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const insightsApiUrl = (import.meta.env.VITE_INSIGHTS_API_URL || apiUrl).replace(/\/+$/, "");
 
-export async function checkHealth() {
-  const response = await fetch(`${apiUrl}/api/v1/health/`);
-  if (!response.ok) {
-    throw new Error(`Health check failed (HTTP ${response.status})`);
-  }
-  return response.json() as Promise<{ status: string; version: string }>;
-}
-
 export type Category = { id: number; name: string; parent_id: number | null };
 
 export async function getCategories(): Promise<Category[]> {

@@ -8,7 +8,6 @@ import { InteractionStatus } from '@azure/msal-browser'
 import { loginRequest } from './authConfig'
 import { callApi } from './api'
 import SpendingPage from './SpendingPage'
-import ApiHealth from './ApiHealth'
 import InsightsPage from './InsightsPage'
 import './App.css'
 
@@ -114,7 +113,6 @@ function App() {
           : <span role="status">{currentApiResult ? 'API session verified' : 'Verifying API session…'}</span>}
         <button type="button" onClick={logout}>Sign out</button>
       </header>
-      <ApiHealth />
       <nav className="insights-nav" aria-label="Account sections">
         <button className="mode-button" type="button" aria-pressed={section === 'spending'} onClick={() => setSection('spending')}>
           Spending
