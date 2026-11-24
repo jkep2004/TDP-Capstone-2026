@@ -93,11 +93,13 @@ INSERT INTO dbo.Assumptions (Name, CategoryId, Value, Unit, Description, Source)
 (N'SubCategoryRollUp',   NULL, 1.0000, N'n/a',       N'Sub-category spend is added to its main category for thresholds; a sub-category with no factor uses its main category factor', N'See docs/data.md');
 GO
 
+/* Test customers use fixed IDs ending in 1-4 so they match customers 1-4 in the test CSVs.
+   Real customers get their Entra user ID (uid) from the API at sign-in. */
 INSERT INTO dbo.Customers (CustomerId, PersonaType, DataSource) VALUES
-(1, NULL, N'test-data (v1-v3)'),
-(2, NULL, N'test-data (v1-v3)'),
-(3, NULL, N'test-data (v1-v3)'),
-(4, N'High Commuter (Heathrow)', N'test-data v3');   -- kept so v3 uploads can be tested
+('00000000-0000-0000-0000-000000000001', NULL, N'test-data (v1-v3)'),
+('00000000-0000-0000-0000-000000000002', NULL, N'test-data (v1-v3)'),
+('00000000-0000-0000-0000-000000000003', NULL, N'test-data (v1-v3)'),
+('00000000-0000-0000-0000-000000000004', N'High Commuter (Heathrow)', N'test-data v3');   -- kept so v3 uploads can be tested
 GO
 
 /* Rules are on MAIN categories only.

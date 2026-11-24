@@ -1,10 +1,9 @@
 
 import os
+from dotenv import load_dotenv
 import jwt
-
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-
 from jwt import PyJWKClient
 
 from fastapi import (
@@ -17,12 +16,18 @@ from fastapi.security import (
     HTTPBearer,
     HTTPAuthorizationCredentials
 )
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
-TENANT_ID = os.environ["ENTRA_TENANT_ID"]
+from database.database import get_db
 
-API_CLIENT_ID = os.environ["ENTRA_API_CLIENT_ID"]
+load_dotenv()
 
-APP_JWT_SECRET = os.environ["APP_JWT_SECRET"]
+TENANT_ID = os.getenv("ENTRA_TENANT_ID")
+
+API_CLIENT_ID = os.getenv("ENTRA_API_CLIENT_ID")
+
+APP_JWT_SECRET = os.getenv("APP_JWT_SECRET")
 
 APP_JWT_ALGORITHM = os.getenv(
     "APP_JWT_ALGORITHM", "HS256"
@@ -39,10 +44,6 @@ ENTRA_AUTHORITY = (
 ENTRA_JWKS_URL = (
     f"{ENTRA_AUTHORITY}/discovery/v2.0/keys"
 )
-
-APP_JWT_ISSUER = "backend"
-
-APP_JWT_AUDIENCE = "TDP-Carbon-API"
 
 jwks_client = PyJWKClient(ENTRA_JWKS_URL)
 
@@ -121,8 +122,8 @@ def create_access_token(user: dict) -> tuple[str, int]:
         "name": user.get("name"),
         "roles": user.get("roles", []),
 
-        "iss": APP_JWT_ISSUER,
-        "aud": APP_JWT_AUDIENCE,
+        "iss": TENANT_ID,
+        "aud": API_CLIENT_ID,
 
         "iat": now,
         "nbf": now,
@@ -140,18 +141,21 @@ def create_access_token(user: dict) -> tuple[str, int]:
     return token, APP_JWT_EXPIRE_MINUTES * 60
 
 def validate_app_token(
-    credentials: HTTPAuthorizationCredentials =
-        Depends(security)
+    credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
 
     try:
+        
+        header = jwt.get_unverified_header(
+            credentials.credentials
+        )
 
         payload = jwt.decode(
             credentials.credentials,
             APP_JWT_SECRET,
             algorithms=[APP_JWT_ALGORITHM],
-            audience=APP_JWT_AUDIENCE,
-            issuer=APP_JWT_ISSUER,
+            audience=API_CLIENT_ID,
+            issuer=TENANT_ID,
             options={
                 "require": [
                     "sub",
@@ -168,10 +172,12 @@ def validate_app_token(
 
         if payload.get("type") != "access":
             raise ValueError("Invalid token type")
-
+            
         return payload
 
-    except (jwt.PyJWTError, ValueError):
+    except (jwt.PyJWTError, ValueError) as e:
+        
+        print("ERROR: {}".format(str(e)))
 
         raise HTTPException(
             status_code=401,
@@ -183,6 +189,7 @@ def get_current_user(
 ):
 
     return {
+        "customer_id": f"{payload.get('tid')}|{payload.get('sub')}",
         "user_id": payload.get("sub"),
         "username": payload.get("username"),
         "name": payload.get("name"),

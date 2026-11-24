@@ -1,6 +1,11 @@
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+import jwt
 from pydantic import BaseModel, Field
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+import structlog
 
 from ..Core.auth import (
     validate_entra_token,
@@ -8,11 +13,14 @@ from ..Core.auth import (
 )
 from ..schemas.AuthRequest import AuthRequest
 from ..schemas.AuthResponse import AuthResponse
+from database.database import get_db
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(
     prefix="/auth"
 )
-
+logger.info("Auth router initialized with prefix /auth")
 
 @router.post(
     "/",
@@ -52,7 +60,10 @@ router = APIRouter(
         },
     },
 )
-def authenticate(request: AuthRequest):
+def authenticate(
+    request: AuthRequest,
+    db: Session = Depends(get_db)
+):
 
     entra_user = validate_entra_token(
         request.token
@@ -67,10 +78,35 @@ def authenticate(request: AuthRequest):
         "tenant_id": entra_user["tid"],
         "roles": entra_user.get("roles", [])
     }
+    logger.info("User data initialized", user_id=user["user_id"])
 
     access_token, expires_in = create_access_token(
         user
     )
+    
+    try:
+        SQL_EXISTS = f"SELECT COUNT(*) FROM Customers WHERE CustomerId = '{user['user_id']}'"
+        result = db.execute(text(SQL_EXISTS)).fetchone()
+        if result[0] == 0:
+            dataSource = "ENTRA"
+            SQL_INSERT = f"INSERT INTO Customers (CustomerId, DataSource) VALUES ('{user['user_id']}', '{dataSource}')"
+            db.execute(text(SQL_INSERT))
+            db.commit()
+            logger.info("New user inserted into Customers table", user_id=user["user_id"])
+            
+    except SQLAlchemyError as e:
+        logger.error("ERROR: Database error occurred", error=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail="Database error: {}".format(str(e))
+        )
+
+    except Exception as e:
+        logger.error("ERROR: Unexpected error occurred", error=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail="Database connection error: {}".format(str(e))
+        )
 
     return {
         "access_token": access_token,

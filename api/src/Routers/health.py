@@ -1,18 +1,24 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+import structlog
 
 from ..schemas.HealthResponse import HealthResponse
 from ..schemas.ErrorResponse import ErrorResponse
 from database.database import get_db
 
-router = APIRouter(prefix="/health")
+logger = structlog.get_logger(__name__)
+
+router = APIRouter(
+    prefix="/health"
+)
+logger.info("Health router initialized with prefix /health")
 
 @router.get(
     "/",
-    summary="Check API health",
+    summary="Check all API services health",
     description="""
-    Checks whether the API is running correctly.
+    Checks whether the API and all its services are running correctly.
     """,
     response_model=HealthResponse,
     responses={
@@ -30,12 +36,12 @@ router = APIRouter(prefix="/health")
     }
 )
 def health():
-    # TODO: Collate other health endpoints (e.g., database, external services)
+    logger.info("Health check endpoint called")
     return HealthResponse(
         status="healthy",
         version="1"
     )
-    
+
 @router.get(
     "/database",
     summary="Check database connection",
@@ -70,15 +76,17 @@ def health():
     }
 )
 def database_health(db: Session = Depends(get_db)):
+    logger.info("Database health check endpoint called")
     try:
         db.execute(text("SELECT 1")) # Execute SQL query to verify connectivity
-
+        logger.info("Database connection successful")
         return HealthResponse(
             status="healthy",
             version="1"
         )
 
     except Exception as e: # TODO: Add ErrorResponse model to OpenAPI spec
+        logger.error("ERROR: Database connection failed", error=str(e))
         raise HTTPException(
             status_code=503,
             detail="Database connection failed"
