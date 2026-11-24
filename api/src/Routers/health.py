@@ -32,48 +32,6 @@ router = APIRouter(
     }
 )
 def health():
-    
-    api_status = api_health()
-    if api_status.status != "healthy":
-        raise HTTPException(
-            status_code=503,
-            detail="API health check failed"
-        )
-    
-    db_status = database_health()
-    if db_status.status != "healthy":
-        raise HTTPException(
-            status_code=503,
-            detail="Database connection failed"
-        )
-    
-    return HealthResponse(
-        status="healthy",
-        version="1"
-    )
-    
-@router.get(
-    "/api",
-    summary="Check API health",
-    description="""
-    Checks whether the API is running correctly.
-    """,
-    response_model=HealthResponse,
-    responses={
-        200: {
-            "description": "API is healthy",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "status": "healthy",
-                        "version": "1"
-                    },
-                }
-            }
-        },
-    }
-)
-def api_health():
     return HealthResponse(
         status="healthy",
         version="1"
