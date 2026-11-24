@@ -5,8 +5,8 @@ import type { AccountInfo } from "@azure/msal-browser";
 const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const insightsApiUrl = (import.meta.env.VITE_INSIGHTS_API_URL || apiUrl).replace(/\/+$/, "");
 
-export async function checkHealth(path: "/health/" | "/health/database") {
-  const response = await fetch(`${apiUrl}/api/v1${path}`);
+export async function checkHealth() {
+  const response = await fetch(`${apiUrl}/api/v1/health/`);
   if (!response.ok) {
     throw new Error(`Health check failed (HTTP ${response.status})`);
   }
