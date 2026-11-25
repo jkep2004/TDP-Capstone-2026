@@ -1,39 +1,157 @@
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
+import structlog
+from pydantic import Field
 
 from database.database import get_db
 from ..schemas.SpendingItem import SpendingItem
 from ..Core.auth import get_current_user
 
-router = APIRouter(
-    prefix="/spend"
-)
+logger = structlog.get_logger(__name__)
+
+router = APIRouter(prefix="/spend")
+logger.info("Spend router initialized with prefix /spend")
+
+class SaveSpendingItem(SpendingItem):
+    week: int | None = Field(gt=0, le=5, description="Week of month, or null for a monthly total")
 
 @router.post(
     "/",
     summary="Create a new spend entry",
-    description="Creates a new spend entry in the database."
+    description="Creates a new spend entry in the database.",
+    responses={
+        200: {
+            "description": "Spend entry created successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "message": "Spend entry created successfully",
+                        "spendingId": 123
+                    }
+                }
+            }
+        },
+        422: {
+            "description": "Invalid category or subcategory",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Invalid category ID"}
+                }
+            }
+        },
+        500: {
+            "description": "Failed to create spend entry",
+            "content": {
+                "application/json": {
+                    "example": {"detail": "Failed to create spend entry"}
+                }
+            }
+        },
+    }
 )
 def create_spend_entry(
     spend_data: SpendingItem,
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    # TODO: Validate spending item
+    spending_id, = save_entries([spend_data], db, user)
+    return {"message": "Spend entry created successfully", "spendingId": spending_id}
 
-    # Retrieve values
+
+@router.post(
+    "/batch",
+    summary="Save spending entries in one transaction",
+    responses={409: {"description": "A spending entry already exists for the selected period"}},
+)
+def create_spend_batch(
+    spending: list[SaveSpendingItem],
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    if not spending:
+        raise HTTPException(status_code=422, detail="Provide at least one spending entry")
+    return {"spendingIds": save_entries(spending, db, user)}
+
+
+def save_entries(spending, db, user):
+    try:
+        ids = [insert_spending_entry(item, db, user) for item in spending]
+        db.commit()
+        return ids
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as error:
+        db.rollback()
+        logger.error("Database error while saving spending", error=str(error))
+        raise HTTPException(status_code=500, detail="Failed to create spend entry") from error
+
+
+def insert_spending_entry(spend_data, db, user):
     customer_id = user["user_id"]
-    category_id = spend_data.category.get_category_id(db)
-    spend_month = spend_data.month
-    week_number = spend_data.week
-    amount_gbp = spend_data.amount
+    parent_category_id = spend_data.categoryID
+    logger.info("Creating spend entry", customer_id=customer_id, category_id=parent_category_id, subcategory_id=spend_data.subcategoryID)
     
-    print (f"Creating spend entry for customer_id: {customer_id}, category_id: {category_id}, spend_month: {spend_month}, week_number: {week_number}, amount_gbp: {amount_gbp}")
+    if str(spend_data.customerID) != str(customer_id).lower():
+        logger.error("ERROR: Customer ID does not match authenticated user", customer_id=spend_data.customerID, authenticated_user_id=customer_id)
+        raise HTTPException(
+            status_code=403,
+            detail="Customer ID does not match authenticated user"
+        )
 
-    # Insert into database
-    query = text("""
+    # Confirm that the parent category exists
+    category_query = text("""
+        SELECT CategoryId
+        FROM dbo.Categories
+        WHERE CategoryId = :category_id
+    """)
+
+    category_result = db.execute(
+        category_query,
+        {"category_id": parent_category_id}
+    ).first()
+
+    if category_result is None:
+        logger.error("ERROR: Invalid category ID", category_id=parent_category_id)
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid category ID"
+        )
+
+    # Default to the parent category if no subcategory was supplied
+    spending_category_id = parent_category_id
+
+    if spend_data.subcategoryID is not None:
+        # Resolve the subcategory to its own CategoryId
+        subcategory_query = text("""
+            SELECT CategoryId
+            FROM dbo.Categories
+            WHERE ParentCategoryId = :parent_category_id
+              AND CategoryId = :subcategoryID
+        """)
+
+        subcategory_result = db.execute(
+            subcategory_query,
+            {
+                "parent_category_id": parent_category_id,
+                "subcategoryID": spend_data.subcategoryID,
+            }
+        ).first()
+
+        if subcategory_result is None:
+            logger.error("ERROR: Subcategory does not belong to the selected category", category_id=parent_category_id, subcategory=spend_data.subcategoryID)
+            raise HTTPException(
+                status_code=422,
+                detail="Subcategory does not belong to the selected category"
+            )
+
+        spending_category_id = subcategory_result[0]
+
+    # Insert using the resolved category or subcategory ID
+    insert_query = text("""
         INSERT INTO dbo.Spending (
             CustomerId,
             CategoryId,
@@ -55,29 +173,25 @@ def create_spend_entry(
 
     try:
         result = db.execute(
-            query,
+            insert_query,
             {
                 "customer_id": customer_id,
-                "category_id": category_id,
-                "spend_month": spend_month,
-                "week_number": week_number,
-                "amount_gbp": amount_gbp,
+                "category_id": spending_category_id,
+                "spend_month": spend_data.month,
+                "week_number": spend_data.week,
+                "amount_gbp": spend_data.amount,
             }
         )
-
-        spending_id = result.scalar_one()
-
-        db.commit()
-
-    except SQLAlchemyError as e:
-        db.rollback()
-        print("ERROR: ", e)
+    except IntegrityError as error:
+        if "UQ_Spending_Customer_Category_Month_Week" not in str(error.orig):
+            raise
+        period = f"{spend_data.month:%Y-%m}"
+        if spend_data.week is not None:
+            period = f"{period}, week {spend_data.week}"
         raise HTTPException(
-            status_code=500,
-            detail="Failed to create spend entry"
-        )
+            status_code=409,
+            detail=f"Spending already exists for {period} (category ID {spending_category_id}). No entries were saved.",
+        ) from error
 
-    return {
-        "message": "Spend entry created successfully",
-        "spendingId": spending_id
-    }
+    spending_id = result.scalar_one()
+    return spending_id

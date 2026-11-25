@@ -11,6 +11,9 @@ import {
 
 import App from './App'
 import { loginRequest } from './authConfig'
+import { callApi, getInsights } from './api'
+
+vi.mock('./api', () => ({ callApi: vi.fn(), getInsights: vi.fn() }))
 
 vi.mock('@azure/msal-react', () => ({
   useIsAuthenticated: vi.fn(),
@@ -43,6 +46,10 @@ function setAuthenticationState(authenticated: boolean) {
 
 describe('App', () => {
   beforeEach(() => {
+    vi.mocked(getInsights).mockReset()
+    vi.mocked(getInsights).mockResolvedValue({ months: [], loadMonth: vi.fn() })
+    vi.mocked(callApi).mockReset()
+    vi.mocked(callApi).mockResolvedValue({})
     loginRedirect.mockReset()
     loginRedirect.mockResolvedValue(undefined)
     logoutRedirect.mockReset()
@@ -92,11 +99,26 @@ describe('App', () => {
     )
   })
 
-  // Authenticated users should reach spending entry and be able to sign out.
+  it('shows the empty insights state and lets users return to spending', async () => {
+    setAuthenticationState(true)
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Insights' }))
+    expect(screen.getByRole('heading', { name: 'Spending insights' })).toBeInTheDocument()
+    expect(await screen.findByText('No spending insights yet. Save spending to see a monthly summary.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'View example' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Spending' }))
+    expect(screen.getByRole('heading', { name: 'Monthly spending' })).toBeInTheDocument()
+  })
+
   it('shows the spending page and supports signing out when authenticated', async () => {
     setAuthenticationState(true)
     const user = userEvent.setup()
     render(<App />)
+    expect(await screen.findByText('API session verified')).toBeInTheDocument()
+    expect(callApi).toHaveBeenCalledWith(testAccount)
 
     expect(
       screen.getByRole('heading', { name: 'Monthly spending' })

@@ -1,47 +1,36 @@
-from enum import Enum
-from types import MappingProxyType
 from fastapi import Depends
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from database.database import get_db
 
-class Itemtype(Enum):
-    Travel    = 'travel'
-    Food      = 'food'
-    Utilities = 'utilities'
-    Shopping  = 'shopping'
-    Housing   = 'housing'
-    Other     = 'other'
-
-    def allowed_subcategory(self, subcategory):
-        if subcategory in Subcategories_by_type[self]:
-                return True
-        else:
-            return False
+class Category (BaseModel):
+    id: int
+    name: str
+    description: str
+    parent_id: int | None
+    is_carbon_tracked: bool
+    
+def create_categories_from_db(db: Session):
+    try:
+        SQL_GET = "SELECT CategoryId, Name, Description, ParentCategoryId, IsCarbonTracked FROM dbo.Categories"
+        result = db.execute(text(SQL_GET)).fetchall()
+        categories = []
         
-    def get_category_id(self, db: Session):
-        try:
-            SQL_QUERY = f"SELECT CategoryId FROM dbo.Categories WHERE Name = '{self.value}'"
-            result = db.execute(text(SQL_QUERY)).fetchone()
-            if result is None:
-                raise ValueError(f"Category '{self.value}' not found in the database")
-            return result[0]
-        except SQLAlchemyError as e:
-            raise ValueError(f"Database error occurred while retrieving category ID: {e}")
-        except Exception as e:
-            raise ValueError(f"Error retrieving category ID: {e}")
-
-Subcategories_by_type = MappingProxyType({  
-    Itemtype.Food:      ("groceries", "eating out"),
-    Itemtype.Travel:    ("fuel", "public transport", "flights"),
-    Itemtype.Utilities: ("electricity","gas", "water"),
-    Itemtype.Shopping:  ("clothing", "electronics", "furniture and appliances"),
-    Itemtype.Housing:   ("rent", "mortgage"),
-    Itemtype.Other:     ()}
-    )
-
-
-def get_subcategory(key):
-    return Subcategories_by_type.get(key)
+        for row in result: # Create Category instances from the database rows
+            category = Category(
+                id=row[0],
+                name=row[1],
+                description=row[2],
+                parent_id=row[3],
+                is_carbon_tracked=row[4]
+            )
+            categories.append(category)
+    
+        return categories
+    except SQLAlchemyError as e:
+        raise ValueError(f"Database error occurred while creating categories: {e}")
+    except Exception as e:
+        raise ValueError(f"Error creating categories: {e}")
