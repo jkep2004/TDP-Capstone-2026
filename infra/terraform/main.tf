@@ -195,11 +195,11 @@ resource "azurerm_container_app" "api_app" {
   ]
 }
 
-  secret {
-    name  = "db-password"
-    value = var.sql_admin_password
-  }
-}
+  # secret {
+  #   name  = "db-password"
+  #   value = var.sql_admin_password
+  # }
+
 
 # 8. Azure Container App (Frontend Web Host)
 resource "azurerm_container_app" "frontend_app" {
@@ -259,6 +259,7 @@ resource "azurerm_key_vault" "kv" {
   sku_name                    = "standard"
   soft_delete_retention_days  = 7
   purge_protection_enabled    = false
+  rbac_authorization_enabled  = false
 }
 
 # 2. give read and write permissions to the current user

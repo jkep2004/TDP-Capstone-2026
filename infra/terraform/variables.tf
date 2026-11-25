@@ -51,3 +51,15 @@ variable "CLIENT_ID" {
   type        = string
   default     = "38344a61-f922-47e6-b292-c374f1ea7076" 
   }
+
+variable "db_password" {
+  description = "Database password stored in Azure Key Vault"
+  type        = string
+  sensitive   = true
+}
+
+variable "app_jwt_secret" {
+  description = "JWT signing secret for the backend API"
+  type        = string
+  sensitive   = true
+}
