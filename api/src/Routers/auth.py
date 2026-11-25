@@ -64,53 +64,63 @@ def authenticate(
     request: AuthRequest,
     db: Session = Depends(get_db)
 ):
-
-    entra_user = validate_entra_token(
-        request.token
-    )
+    entra_user = validate_entra_token(request.token)
 
     user = {
         "user_id": entra_user["oid"],
-        "username": entra_user.get(
-            "preferred_username"
-        ),
+        "username": entra_user.get("preferred_username"),
         "name": entra_user.get("name"),
         "tenant_id": entra_user["tid"],
         "roles": entra_user.get("roles", [])
     }
+
     logger.info("User data initialized", user_id=user["user_id"])
 
-    access_token, expires_in = create_access_token(
-        user
-    )
-    
+    access_token, expires_in = create_access_token(user)
+
     try:
-        SQL_EXISTS = f"SELECT COUNT(*) FROM Customers WHERE CustomerId = '{user['user_id']}'"
-        result = db.execute(text(SQL_EXISTS)).fetchone()
-        if result[0] == 0:
-            dataSource = "ENTRA"
-            SQL_INSERT = f"INSERT INTO Customers (CustomerId, DataSource) VALUES ('{user['user_id']}', '{dataSource}')"
-            db.execute(text(SQL_INSERT))
+        result = db.execute(
+            text("SELECT COUNT(*) FROM Customers WHERE CustomerId = :customer_id"),
+            {"customer_id": user["user_id"]}
+        ).scalar()
+
+        if result == 0:
+            db.execute(
+                text("INSERT INTO Customers (CustomerId, DataSource) VALUES (:customer_id, :data_source)"),
+                {
+                    "customer_id": user["user_id"],
+                    "data_source": "ENTRA"
+                }
+            )
+
             db.commit()
-            logger.info("New user inserted into Customers table", user_id=user["user_id"])
-            
+
+            logger.info(
+                "New user inserted into Customers table",
+                user_id=user["user_id"]
+            )
+
     except SQLAlchemyError as e:
+        db.rollback()
         logger.error("ERROR: Database error occurred", error=str(e))
+
         raise HTTPException(
             status_code=500,
-            detail="Database error: {}".format(str(e))
+            detail="Database error occurred"
         )
 
     except Exception as e:
+        db.rollback()
         logger.error("ERROR: Unexpected error occurred", error=str(e))
+
         raise HTTPException(
             status_code=500,
-            detail="Database connection error: {}".format(str(e))
+            detail="Unexpected database error"
         )
 
     return {
         "access_token": access_token,
-        "token_type": "bearer", # nosec B105
+        "token_type": "bearer",  # nosec B105
         "expires_in": expires_in,
         "user": {
             "id": user["user_id"],
