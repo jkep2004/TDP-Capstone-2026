@@ -119,15 +119,15 @@ def mock_db():
             )
 
         # Subcategory lookup
-        if "parentcategoryid" in sql and "name" in sql:
+        if "parentcategoryid" in sql and "subcategory_id" in sql:
             parent_id = params.get("parent_category_id")
-            subcategory_name = params.get("subcategory")
+            subcategory_id = params.get("subcategory_id")
 
             category = next(
                 (
                     row for row in MOCK_CATEGORIES
                     if row.parent_id == parent_id
-                    and row.name.lower() == str(subcategory_name).lower()
+                    and row.id == subcategory_id
                 ),
                 None,
             )
@@ -232,7 +232,7 @@ def test_calculate_with_multiple_spending_items(client):
             ),
             make_spending_item(
                 categoryID=3,
-                subcategoryID=5,
+                subcategoryID=4,
                 amount=250.0,
                 week=2,
             ),

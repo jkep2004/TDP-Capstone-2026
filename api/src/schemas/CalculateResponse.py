@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 
 class CalculateBreakdownItem(BaseModel, extra="forbid"):
     category: int
-    subcategory: str | None = None
+    subcategory: int | None = None
     amount: float
     week: int
     carbonKg: float

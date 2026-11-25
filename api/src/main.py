@@ -9,7 +9,7 @@ import structlog
 from .Core.logging import configure_logging
 configure_logging("ERROR") # TODO: Change to INFO or DEBUG in dev for more detailed logs
 
-from .Routers import auth, calculate, categories, health, spend
+from .Routers import auth, calculate, categories, health, recommendations, savings, spend, summary, trends
 from .Core.auth import get_current_user
 from .Core.config import check_env_variables
 from .Middleware.logging import RequestLoggingMiddleware
@@ -43,6 +43,30 @@ tags_metadata = [
         "name": "Calculate",
         "description": """
         Provides carbon footprint calculations.
+        """,
+    },
+    {
+        "name": "Trends",
+        "description": """
+        Provides month-by-month spend and carbon trends for the signed-in customer.
+        """,
+    },
+    {
+        "name": "Summary",
+        "description": """
+        Provides the monthly carbon summary for the signed-in customer.
+        """,
+    },
+    {
+        "name": "Recommendations",
+        "description": """
+        Provides spending recommendations for the signed-in customer.
+        """,
+    },
+    {
+        "name": "Savings",
+        "description": """
+        Provides projected money and carbon savings for the signed-in customer.
         """,
     },
     {
@@ -118,6 +142,10 @@ app.include_router(calculate.router, prefix=prefix, tags=["Calculate"])
 app.include_router(categories.router, prefix=prefix, tags=["Categories"])
 app.include_router(health.router, prefix=prefix, tags=["Health"])
 app.include_router(spend.router, prefix=prefix, tags=["Spending"])
+app.include_router(recommendations.router, prefix=prefix, tags=["Recommendations"])
+app.include_router(savings.router, prefix=prefix, tags=["Savings"])
+app.include_router(summary.router, prefix=prefix, tags=["Summary"])
+app.include_router(trends.router, prefix=prefix, tags=["Trends"])
 
 @app.get("/api/user") # DEBUG
 def user_endpoint(
