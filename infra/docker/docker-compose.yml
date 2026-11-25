@@ -4,35 +4,52 @@ services:
     container_name: tdp_sql_server
     env_file:
       - .env
+    environment:
+      ACCEPT_EULA: "Y"
     ports:
-      - "1433:1433"
+      - "1433:1433" # SQL Server default port
     volumes:
       - mssql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     restart: always
 
   backend:
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile.api
     container_name: tdp_backend
     env_file:
-      - .env
+      - .env # Load environment variables from .env file
+    environment:
+      DB_SERVER: "sqlserver,1433"
+      DB_USER: "sa"
     ports:
-      - "8000:8000"
+      - "8000:8000" # FastAPI default port
     depends_on:
-      - sqlserver
+      sqlserver:
+        condition: service_healthy # Wait for SQL Server to be healthy before starting the backend
     restart: always
 
   frontend:
-      build: ./frontend
-      container_name: tdp_frontend
-      env_file:
-        - .env
-      ports:
-        - "5173:5173"
-      depends_on:
-        - backend
-      restart: always
+    build: 
+      context: ../../frontend
+      args:
+        VITE_ENTRA_CLIENT_ID: ${VITE_ENTRA_CLIENT_ID}
+        VITE_ENTRA_API_CLIENT_ID: ${VITE_ENTRA_API_CLIENT_ID}
+        VITE_API_URL: ${VITE_API_URL}
+    container_name: tdp_frontend
+    env_file:
+      - .env
+    ports:
+      - "5173:80" # Vite default port
+    depends_on:
+      - backend
+    restart: always
 
 volumes:
   mssql_data:
