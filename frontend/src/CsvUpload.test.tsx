@@ -6,6 +6,10 @@ import CsvUpload from './CsvUpload'
 
 afterEach(() => vi.unstubAllGlobals())
 
+vi.mock('./msal', () => ({
+  msalInstance: { acquireTokenSilent: vi.fn().mockResolvedValue({ accessToken: 'entra-token' }) },
+}))
+
 const validCsv =
   'customer_id,week,travel,food,utilities\n' +
   '1,1,12.50,30,40\n' +
@@ -21,32 +25,69 @@ function createCsvFile(contents: string) {
 }
 
 describe('CsvUpload', () => {
+  it('saves all previewed categories and weeks in one authenticated request', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(Response.json([
+        { id: 1, name: 'Travel', parent_id: null },
+        { id: 2, name: 'Food', parent_id: null },
+        { id: 3, name: 'Utilities', parent_id: null },
+      ]))
+      .mockResolvedValueOnce(Response.json({ access_token: 'app-token', user: { id: 'customer' } }))
+      .mockResolvedValueOnce(Response.json({ spendingIds: [51, 52, 53] }))
+    vi.stubGlobal('fetch', request)
+    const user = userEvent.setup()
+    render(<CsvUpload month="2026-10" account={{
+      homeAccountId: 'home', localAccountId: 'local', tenantId: 'tenant',
+      environment: 'login.microsoftonline.com', username: 'learner@example.com',
+    }} />)
+
+    await user.upload(screen.getByLabelText('Choose a CSV file'), createCsvFile(validCsv))
+    await user.click(screen.getByRole('button', { name: 'Preview spending' }))
+    await user.selectOptions(await screen.findByLabelText('Customer in file'), '2')
+    await user.click(screen.getByRole('button', { name: 'Save spending' }))
+
+    expect(await screen.findByText('Saved 3 entries. IDs: 51, 52, 53.')).toBeInTheDocument()
+    expect(request).toHaveBeenCalledTimes(3)
+    const [url, options] = request.mock.calls[2]
+    expect(url).toMatch(/\/api\/v1\/spend\/batch$/)
+    expect(options.headers.Authorization).toBe('Bearer app-token')
+    expect(JSON.parse(options.body)).toEqual([1, 2, 3].map((categoryID) => ({
+      customerID: 'customer', month: '2026-10-01', week: 1, categoryID, amount: 100,
+    })))
+  })
+
   it('calculates carbon impact using only the previewed weekly rows', async () => {
-    const request = vi.fn().mockResolvedValue(Response.json({
+    const customerId = 'b55b72a0-1df6-4d73-bf41-8110a29ac51d'
+    const request = vi.fn().mockResolvedValueOnce(Response.json([
+      { id: 1, name: 'Travel', parent_id: null },
+      { id: 2, name: 'Food', parent_id: null },
+      { id: 3, name: 'Utilities', parent_id: null },
+    ])).mockResolvedValueOnce(Response.json({
       totalCarbonKg: 2,
-      breakdown: [{ category: 'travel', amount: 12.5, carbonKg: 2 }],
+      breakdown: [{ category: 1, amount: 12.5, carbonKg: 2 }],
     }))
     vi.stubGlobal('fetch', request)
     const user = userEvent.setup()
-    render(<CsvUpload month="2026-10" />)
+    render(<CsvUpload month="2026-10" customerId={customerId} />)
 
     await user.upload(screen.getByLabelText('Choose a CSV file'), createCsvFile(validCsv))
     await user.click(screen.getByRole('button', { name: 'Preview spending' }))
     await user.click(await screen.findByRole('button', { name: 'Calculate carbon impact' }))
 
     expect(await screen.findByText('2 kg CO₂e')).toBeInTheDocument()
-    expect(request).toHaveBeenCalledOnce()
-    const [url, options] = request.mock.calls[0]
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(request.mock.calls[0][0]).toMatch(/\/api\/v1\/categories\/$/)
+    const [url, options] = request.mock.calls[1]
     expect(url).toMatch(/\/api\/v1\/calculate\/$/)
     expect(options.method).toBe('POST')
     expect(JSON.parse(options.body)).toEqual({
       spending: [
-        { CustomerID: 1, week: 1, category: 'travel', amount: 12.5 },
-        { CustomerID: 1, week: 1, category: 'food', amount: 30 },
-        { CustomerID: 1, week: 1, category: 'utilities', amount: 40 },
-        { CustomerID: 1, week: 2, category: 'travel', amount: 0 },
-        { CustomerID: 1, week: 2, category: 'food', amount: 20.25 },
-        { CustomerID: 1, week: 2, category: 'utilities', amount: 15 },
+        { customerID: customerId, month: '2026-10-01', week: 1, categoryID: 1, amount: 12.5 },
+        { customerID: customerId, month: '2026-10-01', week: 1, categoryID: 2, amount: 30 },
+        { customerID: customerId, month: '2026-10-01', week: 1, categoryID: 3, amount: 40 },
+        { customerID: customerId, month: '2026-10-01', week: 2, categoryID: 1, amount: 0 },
+        { customerID: customerId, month: '2026-10-01', week: 2, categoryID: 2, amount: 20.25 },
+        { customerID: customerId, month: '2026-10-01', week: 2, categoryID: 3, amount: 15 },
       ],
     })
   })

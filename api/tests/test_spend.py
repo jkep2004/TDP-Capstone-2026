@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, call
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from database.database import get_db
 from src.Core.auth import get_current_user
@@ -44,11 +44,56 @@ def get_insert_call(mock_db):
 
     raise AssertionError("Spending INSERT was not executed")
 
+
+def test_batch_saves_monthly_and_weekly_entries_in_one_transaction(mock_db, valid_payload):
+    mock_db.execute.side_effect = [
+        make_first_result((1,)), make_insert_result(504),
+        make_first_result((1,)), make_insert_result(505),
+    ]
+
+    response = client.post("/spend/batch", json=[{**valid_payload, "week": None}, valid_payload])
+
+    assert response.status_code == 200
+    assert response.json() == {"spendingIds": [504, 505]}
+    assert mock_db.execute.call_args_list[1].args[1]["week_number"] is None
+    assert mock_db.execute.call_args_list[3].args[1]["week_number"] == valid_payload["week"]
+    mock_db.commit.assert_called_once()
+
+
+def test_batch_rolls_back_when_a_later_entry_fails(mock_db, valid_payload):
+    mock_db.execute.side_effect = [
+        make_first_result((1,)), make_insert_result(504),
+        make_first_result(None),
+    ]
+
+    response = client.post("/spend/batch", json=[valid_payload, {**valid_payload, "categoryID": 99}])
+
+    assert response.status_code == 422
+    mock_db.commit.assert_not_called()
+    mock_db.rollback.assert_called_once()
+
+
+def test_batch_reports_duplicate_and_rolls_back_earlier_entries(mock_db, valid_payload):
+    duplicate = IntegrityError(
+        "INSERT", {}, Exception("Violation of UNIQUE KEY constraint 'UQ_Spending_Customer_Category_Month_Week'")
+    )
+    mock_db.execute.side_effect = [
+        make_first_result((2,)), make_insert_result(505),
+        make_first_result((1,)), duplicate,
+    ]
+
+    response = client.post("/spend/batch", json=[{**valid_payload, "categoryID": 2}, valid_payload])
+
+    assert response.status_code == 409
+    assert "2026-11, week 3" in response.json()["detail"]
+    mock_db.commit.assert_not_called()
+    mock_db.rollback.assert_called_once()
+
 # Fixtures
 
 @pytest.fixture
 def customer_id():
-    return uuid.uuid4()
+    return str(uuid.uuid4())
 
 @pytest.fixture
 def mock_db():

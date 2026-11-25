@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import type { AccountInfo } from '@azure/msal-browser'
+import { resolveSpendingCategories, saveSpending } from './api'
 
 type SpendingFormProps = {
   month: string
+  account?: AccountInfo
 }
 
 const categories = [
@@ -10,7 +13,7 @@ const categories = [
   { key: 'utilities', label: 'Utilities' },
 ] as const
 
-function SpendingForm({ month }: SpendingFormProps) {
+function SpendingForm({ month, account }: SpendingFormProps) {
   const [amounts, setAmounts] = useState({
     food: '',
     travel: '',
@@ -20,6 +23,8 @@ function SpendingForm({ month }: SpendingFormProps) {
     month: string
     message: string
   } | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   // Add amounts in pence, then convert back to pounds.
   const totalPence = Object.values(amounts).reduce((sum, value) => {
@@ -40,17 +45,27 @@ function SpendingForm({ month }: SpendingFormProps) {
     <form
       id="manual-spending-form"
       aria-describedby="spending-help"
-      onChange={() => setConfirmation(null)}
-      onSubmit={(event) => {
+      onChange={() => {
+        setConfirmation(null)
+        setError('')
+      }}
+      onSubmit={async (event) => {
         event.preventDefault()
-        setConfirmation(
-          {
-            month,
-            message:
-              `Demo submission for ${month}: ${formattedTotal}. ` +
-              'Nothing has been saved to the database or calculated yet.',
-          }
-        )
+        if (!month || !account || saving) return
+        setSaving(true)
+        setConfirmation(null)
+        setError('')
+        try {
+          const available = await resolveSpendingCategories(categories.map(({ key }) => key))
+          const result = await saveSpending(available.map(({ category, categoryID }) => ({
+            categoryID, month: `${month}-01`, week: null, amount: Number(amounts[category]),
+          })), account)
+          setConfirmation({ month, message: `Spending saved for ${month} (${formattedTotal}). IDs: ${result.spendingIds.join(', ')}.` })
+        } catch (error) {
+          setError(error instanceof Error ? error.message : 'Could not save spending.')
+        } finally {
+          setSaving(false)
+        }
       }}
     >
       <div className="amount-fields">
@@ -65,6 +80,8 @@ function SpendingForm({ month }: SpendingFormProps) {
               type="number"
               inputMode="decimal"
               min="0"
+              max="100000"
+              disabled={saving}
               step="0.01"
               placeholder="0.00"
               value={amounts[category.key]}
@@ -85,12 +102,10 @@ function SpendingForm({ month }: SpendingFormProps) {
         <strong>{formattedTotal}</strong>
       </div>
 
-      <p className="help-text">
-        Demo mode: submissions are temporary, do not save data, and will clear
-        when the page refreshes.
-      </p>
-
-      <button type="submit">Submit demo spending</button>
+      <button type="submit" disabled={saving || !account || confirmation?.month === month}>
+        {saving ? 'Saving…' : 'Save spending'}
+      </button>
+      {error && <p role="alert">{error}</p>}
 
       <p className="confirmation" role="status">
         {confirmation?.month === month ? confirmation.message : ''}

@@ -8,7 +8,7 @@ import { InteractionStatus } from '@azure/msal-browser'
 import { loginRequest } from './authConfig'
 import { callApi } from './api'
 import SpendingPage from './SpendingPage'
-import ApiHealth from './ApiHealth'
+import InsightsPage from './InsightsPage'
 import './App.css'
 
 function App() {
@@ -18,6 +18,7 @@ function App() {
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [apiResult, setApiResult] = useState<{ accountId: string; error?: string }>()
   const account = accounts[0]
+  const [section, setSection] = useState<'spending' | 'insights'>('spending')
   const currentApiResult = apiResult?.accountId === account?.homeAccountId ? apiResult : undefined
 
   useEffect(() => {
@@ -107,36 +108,21 @@ function App() {
         <span>
           Signed in as <strong>{account?.username ?? 'Microsoft account'}</strong>
         </span>
-        {/* Send post request to /api/v1/auth with token */}
-        <button onClick={async () => {
-          const token = await instance.acquireTokenSilent({
-            ...loginRequest,
-            account: accounts[0]
-          });
-          if (token) {
-            let response = await fetch("http://localhost:8000/api/v1/auth/", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
-                token: token.accessToken
-              })
-            }).then(res => res.json());
-            // DEBUG
-            console.log("Token sent to backend:", token.accessToken);
-            console.log("Token received from backend:", response);
-          }
-        }}>
-          DEBUG: Send token to backend
-        </button>
         {currentApiResult?.error
           ? <span role="alert">{currentApiResult.error}</span>
           : <span role="status">{currentApiResult ? 'API session verified' : 'Verifying API session…'}</span>}
         <button type="button" onClick={logout}>Sign out</button>
       </header>
-      <ApiHealth />
-      <SpendingPage />
+      <nav className="insights-nav" aria-label="Account sections">
+        <button className="mode-button" type="button" aria-pressed={section === 'spending'} onClick={() => setSection('spending')}>
+          Spending
+        </button>
+        <button className="mode-button" type="button" aria-pressed={section === 'insights'} onClick={() => setSection('insights')}>
+          Insights
+        </button>
+      </nav>
+      <div hidden={section !== 'spending'}><SpendingPage account={account} /></div>
+      {section === 'insights' && account && <InsightsPage key={account.homeAccountId} account={account} />}
     </>
   )
 }

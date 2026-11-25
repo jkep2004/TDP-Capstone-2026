@@ -104,7 +104,8 @@ def execute_sql_file(file_name):
 
 if __name__ == "__main__":
     # Optional flag: python init_db.py --with-test-data
-    # also loads the sample spending from test_spending.sql (testing only)
+    # also loads test spending: test_spending.sql (v1, customers 1-3)
+    # and sample_spending.sql (Sprint 3, 8 customers, Sep-Nov 2026). Testing only.
     with_test_data = "--with-test-data" in sys.argv
 
     print("=== Starting Secure Database Infrastructure Initialization & Seeding ===")
@@ -118,9 +119,10 @@ if __name__ == "__main__":
     # 3. Insert reference/seed data (seed.sql) - no spending data
     execute_sql_file("seed.sql")
 
-    # 4. Optional: load sample spending for testing (test_spending.sql)
+    # 4. Optional: load test and sample spending (testing only)
     if with_test_data:
         execute_sql_file("test_spending.sql")
+        execute_sql_file("sample_spending.sql")
     else:
         print("Skipping test spending data (add --with-test-data to load it).")
     

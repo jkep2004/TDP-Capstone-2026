@@ -1,10 +1,11 @@
 import { useState } from 'react'
+import type { AccountInfo } from '@azure/msal-browser'
 
 import './SpendingPage.css'
 import CsvUpload from './CsvUpload'
 import SpendingForm from './SpendingForm'
 
-function SpendingPage() {
+function SpendingPage({ account }: { account?: AccountInfo } = {}) {
   const [month, setMonth] = useState('')
   const [mode, setMode] = useState<'manual' | 'csv'>('manual')
 
@@ -61,10 +62,10 @@ function SpendingPage() {
         </div>
 
         <div hidden={mode !== 'manual'}>
-          <SpendingForm month={month} />
+          <SpendingForm month={month} account={account} />
         </div>
         <div hidden={mode !== 'csv'}>
-          <CsvUpload month={month} />
+          <CsvUpload month={month} customerId={account?.localAccountId} account={account} />
         </div>
       </section>
     </main>
