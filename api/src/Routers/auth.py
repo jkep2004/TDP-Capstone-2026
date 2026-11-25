@@ -85,12 +85,12 @@ def authenticate(
     )
     
     try:
-        SQL_EXISTS = f"SELECT COUNT(*) FROM Customers WHERE CustomerId = '{user['user_id']}'"
-        result = db.execute(text(SQL_EXISTS)).fetchone()
+        SQL_EXISTS = f"SELECT COUNT(*) FROM Customers WHERE CustomerId = :customer_id"
+        result = db.execute(text(SQL_EXISTS), {"customer_id": user["user_id"]}).fetchone()
         if result[0] == 0:
             dataSource = "ENTRA"
-            SQL_INSERT = f"INSERT INTO Customers (CustomerId, DataSource) VALUES ('{user['user_id']}', '{dataSource}')"
-            db.execute(text(SQL_INSERT))
+            SQL_INSERT = f"INSERT INTO Customers (CustomerId, DataSource) VALUES (:customer_id, :data_source)"
+            db.execute(text(SQL_INSERT), {"customer_id": user["user_id"], "data_source": dataSource})
             db.commit()
             logger.info("New user inserted into Customers table", user_id=user["user_id"])
             
