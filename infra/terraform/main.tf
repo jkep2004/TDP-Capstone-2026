@@ -259,7 +259,7 @@ resource "azurerm_key_vault" "kv" {
   sku_name                    = "standard"
   soft_delete_retention_days  = 7
   purge_protection_enabled    = false
-  rbac_authorization_enabled  = false
+  enable_rbac_authorization  = false
 }
 
 # 2. give read and write permissions to the current user
