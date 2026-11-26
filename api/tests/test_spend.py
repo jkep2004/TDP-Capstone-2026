@@ -677,6 +677,13 @@ def test_zero_amount_is_accepted(
 
     assert item.amount == 0
 
+
+
+def test_amount_exceeding_limit_is_rejected(valid_payload):
+    valid_payload["amount"] = 100_001
+    item = SpendingItem(valid_payload)
+    assert item.amount == 100_000
+
 def test_missing_amount(
     mock_db,
     valid_payload,
