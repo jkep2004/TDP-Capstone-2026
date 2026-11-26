@@ -70,6 +70,43 @@ it.each([
   expect(request).toHaveBeenCalledTimes(2)
 })
 
+it.each([false, true])('replaces a saved month only with confirmation (%s)', async (confirmed) => {
+  vi.mocked(msalInstance.acquireTokenSilent).mockResolvedValueOnce({
+    accessToken: 'entra-token',
+  } as Awaited<ReturnType<typeof msalInstance.acquireTokenSilent>>)
+  request
+    .mockResolvedValueOnce(Response.json({ access_token: 'app-token', user: { id: 'customer' } }))
+    .mockResolvedValueOnce(Response.json({ detail: { code: 'spending_month_exists' } }, { status: 409 }))
+    .mockResolvedValueOnce(Response.json({ spendingIds: [51] }))
+  const confirm = vi.fn().mockResolvedValue(confirmed)
+
+  expect(await saveSpending(entries, account, confirm)).toBe(confirmed ? undefined : false)
+  expect(confirm).toHaveBeenCalledTimes(1)
+  expect(request.mock.calls[1][0]).toMatch(/\/spend\/month$/)
+  expect(request.mock.calls[1][1]?.method).toBe('POST')
+  expect(request).toHaveBeenCalledTimes(confirmed ? 3 : 2)
+  if (confirmed) {
+    expect(request.mock.calls[2][0]).toBe(request.mock.calls[1][0])
+    expect(request.mock.calls[2][1]).toEqual({ ...request.mock.calls[1][1], method: 'PUT' })
+  }
+})
+
+it('stops safely when the API only supports the older spending endpoint', async () => {
+  vi.mocked(msalInstance.acquireTokenSilent).mockResolvedValueOnce({
+    accessToken: 'entra-token',
+  } as Awaited<ReturnType<typeof msalInstance.acquireTokenSilent>>)
+  request
+    .mockResolvedValueOnce(Response.json({ access_token: 'app-token', user: { id: 'customer' } }))
+    .mockResolvedValueOnce(Response.json({ detail: 'Not Found' }, { status: 404 }))
+  const confirm = vi.fn()
+
+  await expect(saveSpending(entries, account, confirm)).rejects.toMatchObject({
+    customerMessage: 'Saving spending is temporarily unavailable. Please try again later.',
+  })
+  expect(confirm).not.toHaveBeenCalled()
+  expect(request).toHaveBeenCalledTimes(2)
+})
+
 it('rejects a category when the only match is a subcategory', async () => {
   request.mockResolvedValueOnce(Response.json([{ id: 1, name: 'Food', parent_id: 2 }]))
 

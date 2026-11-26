@@ -102,7 +102,7 @@ describe('CsvUpload', () => {
     expect(await screen.findByText('Saved 3 entries for October 2026.')).toBeInTheDocument()
     expect(request).toHaveBeenCalledTimes(3)
     const [url, options] = request.mock.calls[2]
-    expect(url).toMatch(/\/api\/v1\/spend\/batch$/)
+    expect(url).toMatch(/\/api\/v1\/spend\/month$/)
     expect(options.headers.Authorization).toBe('Bearer app-token')
     expect(JSON.parse(options.body)).toEqual([1, 2, 3].map((categoryID) => ({
       customerID: 'customer', month: '2026-10-01', week: 1, categoryID, amount: 100,

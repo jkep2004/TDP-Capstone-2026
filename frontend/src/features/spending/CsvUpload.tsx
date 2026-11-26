@@ -17,9 +17,10 @@ type CsvUploadProps = {
   account?: AccountInfo
   onSaved?: (month: string) => void
   onSavingChange?: (saving: boolean) => void
+  confirmReplacement?: () => Promise<boolean>
 }
 
-function CsvUpload({ month, customerId, account, onSaved, onSavingChange }: CsvUploadProps) {
+function CsvUpload({ month, customerId, account, onSaved, onSavingChange, confirmReplacement }: CsvUploadProps) {
   const requestPending = useRef(false)
   const dragDepth = useRef(0)
   const [file, setFile] = useState<File | null>(null)
@@ -81,7 +82,8 @@ function CsvUpload({ month, customerId, account, onSaved, onSavingChange }: CsvU
     setSaved(undefined)
     try {
       const { entries } = await buildEntries()
-      await saveSpending(entries, account)
+      const result = await saveSpending(entries, account, confirmReplacement)
+      if (result === false) return
       setSaved({ month, count: entries.length })
       onSaved?.(month)
     } catch (error) {

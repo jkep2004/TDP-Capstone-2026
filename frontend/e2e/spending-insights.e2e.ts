@@ -42,4 +42,34 @@ test('saves itemized spending and displays saved and seeded insights', async ({ 
   const shopping = page.getByRole('region', { name: 'Recommendations' })
     .getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Shopping' }) })
   await expect(shopping).toContainText('£123.41')
+
+  const enterReplacement = async () => {
+    await page.getByRole('button', { name: 'Add spending' }).click()
+    await page.getByLabel('Spending month').fill('2026-12')
+    await page.getByRole('spinbutton', { name: 'Food (£)' }).fill('300')
+    for (const category of ['Travel', 'Utilities', 'Shopping', 'Housing', 'Other']) {
+      await page.getByRole('spinbutton', { name: `${category} (£)` }).fill('0')
+    }
+  }
+
+  const save = page.getByRole('button', { name: 'Save spending' })
+  const replace = page.getByRole('dialog', { name: 'Replace saved spending?' })
+  await enterReplacement()
+  await save.click()
+  await expect(replace).toContainText('December 2026')
+  await replace.getByRole('button', { name: 'Keep saved spending' }).click()
+  await expect(replace).toBeHidden()
+  await expect(save).toBeFocused()
+  await expect(page.getByRole('spinbutton', { name: 'Food (£)' })).toHaveValue('300')
+  await page.getByRole('button', { name: 'Overview' }).click()
+  await month.selectOption('2026-12')
+  await expect(total).toContainText('50.9 kg CO₂e')
+
+  await enterReplacement()
+  await save.click()
+  await replace.getByRole('button', { name: 'Replace spending' }).click()
+  await expect(page.getByRole('heading', { name: 'Spending insights' })).toBeFocused()
+  await expect(page.getByRole('heading', { name: 'Monthly spending' }).locator('..')).toContainText('£300.00')
+  await month.selectOption('2026-11')
+  await expect(shopping).toContainText('£123.41')
 })

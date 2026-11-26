@@ -137,18 +137,30 @@ export async function getInsights(account: AccountInfo, signal: AbortSignal) {
 
 export async function saveSpending(
   entries: (Omit<SpendingEntry, "customerID" | "week"> & { week: number | null })[],
-  account: AccountInfo
-) {
+  account: AccountInfo,
+  confirmReplacement?: () => Promise<boolean>,
+): Promise<void | false> {
   const session = await exchangeToken(account);
-  const response = await fetch(`${apiUrl}/api/v1/spend/batch`, {
-    method: "POST",
+  const request = {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${session.access_token}`
     },
     body: JSON.stringify(entries.map((entry) => ({ ...entry, customerID: session.user.id })))
-  });
+  };
+  const url = `${apiUrl}/api/v1/spend/month`;
+  let response = await fetch(url, { ...request, method: "POST" });
+  if (response.status === 409 && confirmReplacement) {
+    const conflict = await response.json().catch(() => null);
+    if (conflict?.detail?.code === "spending_month_exists") {
+      if (!await confirmReplacement()) return false;
+      response = await fetch(url, { ...request, method: "PUT" });
+    }
+  }
   if (!response.ok) {
+    if (response.status === 404 || response.status === 405) {
+      throw new CustomerError(`Save failed (HTTP ${response.status})`, "Saving spending is temporarily unavailable. Please try again later.");
+    }
     if (response.status === 409) {
       throw new CustomerError(
         "Save failed (HTTP 409)",

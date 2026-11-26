@@ -70,7 +70,7 @@ describe('SpendingPage', () => {
     expect(request).toHaveBeenCalledTimes(3)
     expect(request.mock.calls[0][0]).toMatch(/\/api\/v1\/categories\/$/)
     const [url, options] = request.mock.calls[2]
-    expect(url).toMatch(/\/api\/v1\/spend\/batch$/)
+    expect(url).toMatch(/\/api\/v1\/spend\/month$/)
     expect(options.headers.Authorization).toBe('Bearer app-token')
     expect(JSON.parse(options.body)).toEqual([
       { customerID: 'customer', categoryID: 27, month: '2026-03-01', week: null, amount: 12.5 },

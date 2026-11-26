@@ -13,11 +13,12 @@ type SpendingFormProps = {
   account?: AccountInfo
   onSaved?: (month: string) => void
   onSavingChange?: (saving: boolean) => void
+  confirmReplacement?: () => Promise<boolean>
 }
 
 type SpendingCategory = Category & { subcategories: Category[] }
 
-function SpendingForm({ month, account, onSaved, onSavingChange }: SpendingFormProps) {
+function SpendingForm({ month, account, onSaved, onSavingChange, confirmReplacement }: SpendingFormProps) {
   const fieldPrefix = useId()
   const requestPending = useRef(false)
   const [categories, setCategories] = useState<SpendingCategory[]>()
@@ -127,9 +128,10 @@ function SpendingForm({ month, account, onSaved, onSavingChange }: SpendingFormP
         setConfirmation(null)
         setError('')
         try {
-          await saveSpending(entries.map((entry) => ({
+          const result = await saveSpending(entries.map((entry) => ({
             ...entry, month: `${month}-01`, week: null,
-          })), account)
+          })), account, confirmReplacement)
+          if (result === false) return
           setConfirmation({ month, message: `Spending saved for ${formatMonth(month)} (${formattedTotal}).` })
           onSaved?.(month)
         } catch (error) {

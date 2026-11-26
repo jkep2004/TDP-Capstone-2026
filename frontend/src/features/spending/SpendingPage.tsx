@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { AccountInfo } from '@azure/msal-browser'
 import { CalendarDays, FileUp, PencilLine } from 'lucide-react'
+import { formatMonth } from '../../utils/formatMonth'
 
 import './SpendingPage.css'
 import CsvUpload from './CsvUpload'
@@ -10,6 +11,28 @@ function SpendingPage({ account, onSaved }: { account?: AccountInfo; onSaved?: (
   const [month, setMonth] = useState('')
   const [mode, setMode] = useState<'manual' | 'csv'>('manual')
   const [saving, setSaving] = useState(false)
+  const dialog = useRef<HTMLDialogElement>(null)
+  const resolveReplacement = useRef<((replace: boolean) => void) | null>(null)
+  const saveButton = useRef<HTMLButtonElement | null>(null)
+  const dialogTitle = useId()
+  const dialogDescription = useId()
+
+  useEffect(() => () => resolveReplacement.current?.(false), [])
+  useEffect(() => {
+    if (!saving && saveButton.current) {
+      saveButton.current.focus()
+      saveButton.current = null
+    }
+  }, [saving])
+
+  const confirmReplacement = async () => {
+    const prompt = dialog.current
+    if (!prompt) return false
+    saveButton.current = prompt.closest('main')?.querySelector('.save-button[aria-busy="true"]') ?? null
+    prompt.returnValue = ''
+    prompt.showModal()
+    return new Promise<boolean>((resolve) => { resolveReplacement.current = resolve })
+  }
 
   return (
     <main id="spending-content" className="spending-page entry-page" tabIndex={-1}>
@@ -67,12 +90,27 @@ function SpendingPage({ account, onSaved }: { account?: AccountInfo; onSaved?: (
         </div>
 
         <div hidden={mode !== 'manual'}>
-          <SpendingForm month={month} account={account} onSaved={onSaved} onSavingChange={setSaving} />
+          <SpendingForm month={month} account={account} onSaved={onSaved} onSavingChange={setSaving} confirmReplacement={confirmReplacement} />
         </div>
         <div hidden={mode !== 'csv'}>
-          <CsvUpload month={month} customerId={account?.localAccountId} account={account} onSaved={onSaved} onSavingChange={setSaving} />
+          <CsvUpload month={month} customerId={account?.localAccountId} account={account} onSaved={onSaved} onSavingChange={setSaving} confirmReplacement={confirmReplacement} />
         </div>
       </section>
+
+      <dialog ref={dialog} className="replace-spending-dialog" aria-labelledby={dialogTitle}
+        aria-describedby={dialogDescription} onClose={(event) => {
+          resolveReplacement.current?.(event.currentTarget.returnValue === 'replace')
+          resolveReplacement.current = null
+        }}>
+        <h2 id={dialogTitle}>Replace saved spending?</h2>
+        <p id={dialogDescription}>
+          {month && `You already have spending saved for ${formatMonth(month)}. Replacing it will remove all previous entries for that month.`}
+        </p>
+        <div className="replace-spending-actions">
+          <button type="button" className="button-secondary" onClick={() => dialog.current?.close()}>Keep saved spending</button>
+          <button type="button" className="save-button" onClick={() => dialog.current?.close('replace')}>Replace spending</button>
+        </div>
+      </dialog>
     </main>
   )
 }

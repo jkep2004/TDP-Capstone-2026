@@ -5,6 +5,18 @@
   background: var(--surface);
   box-shadow: var(--elevation);
 }
+.replace-spending-dialog {
+  width: min(29rem, calc(100% - 2rem));
+  padding: clamp(1.15rem, 4vw, 1.75rem);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  box-shadow: var(--elevation);
+}
+.replace-spending-dialog::backdrop { background: #081c39a6; }
+.replace-spending-dialog p { margin-top: .65rem; color: var(--muted); }
+.replace-spending-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: .6rem; margin-top: 1.25rem; }
 .mode-switch {
   display: inline-grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

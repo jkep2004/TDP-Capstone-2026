@@ -91,6 +91,50 @@ def test_batch_reports_duplicate_and_rolls_back_earlier_entries(mock_db, valid_p
 
 # Fixtures
 
+def test_create_month_detects_existing_rows_without_writing(mock_db, valid_payload):
+    mock_db.execute.return_value = make_insert_result(1)
+
+    response = client.post("/spend/month", json=[valid_payload])
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": {"code": "spending_month_exists"}}
+    mock_db.execute.assert_called_once()
+    mock_db.commit.assert_not_called()
+    mock_db.rollback.assert_called_once()
+
+
+@pytest.mark.parametrize("invalid_category", [False, True])
+def test_replace_month_scopes_deletion_and_rolls_back_on_failure(mock_db, valid_payload, invalid_category):
+    mock_db.execute.side_effect = [
+        make_insert_result(1), MagicMock(),
+        make_first_result(None if invalid_category else (1,)), make_insert_result(504),
+    ]
+
+    response = client.put("/spend/month", json=[valid_payload])
+
+    delete = mock_db.execute.call_args_list[1]
+    assert "DELETE FROM dbo.Spending" in str(delete.args[0])
+    assert "CustomerId = :customer_id AND SpendMonth = :month" in str(delete.args[0])
+    assert delete.args[1] == {"customer_id": valid_payload["customerID"], "month": date(2026, 11, 1)}
+    if invalid_category:
+        assert response.status_code == 422
+        mock_db.commit.assert_not_called()
+        mock_db.rollback.assert_called_once()
+    else:
+        assert response.status_code == 200
+        assert response.json() == {"spendingIds": [504]}
+        mock_db.commit.assert_called_once()
+
+
+def test_replace_month_rejects_mixed_months_before_any_database_work(mock_db, valid_payload):
+    response = client.put("/spend/month", json=[
+        valid_payload, {**valid_payload, "month": "2026-12-01"},
+    ])
+
+    assert response.status_code == 422
+    mock_db.execute.assert_not_called()
+
+
 @pytest.fixture
 def customer_id():
     return str(uuid.uuid4())
