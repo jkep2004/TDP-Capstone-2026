@@ -42,7 +42,7 @@ export default function InsightsHistory({ months, current, onSelect }: {
   return (
     <section className="insights-card history-panel" aria-labelledby="insights-history" data-metric={metric}>
       <header className="panel-heading">
-        <h2 id="insights-history">{carbon ? 'Estimated carbon over time' : 'Spending over time'}</h2>
+        <h2 id="insights-history" tabIndex={-1}>{carbon ? 'Estimated carbon over time' : 'Spending over time'}</h2>
         {available && <span className="chart-unit">{carbon ? 'kg CO₂e' : '£'}</span>}
       </header>
       {months.length > 0 && (

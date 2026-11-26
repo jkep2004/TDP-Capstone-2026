@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { AccountInfo } from '@azure/msal-browser'
-import { CalendarDays, ChartNoAxesCombined, CircleCheck, Coins, Leaf, Play, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
+import { CalendarDays, ChartNoAxesCombined, CircleCheck, Coins, Compass, Leaf, Play, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
 import CategoryIcon from '../../app/CategoryIcon'
 import { getInsights } from '../../services/api'
 import { customerErrorMessage } from '../../utils/customerError'
@@ -10,6 +10,7 @@ import { formatCarbon, formatCarbonNumber, formatMoney } from '../../utils/forma
 import InsightsHistory from './InsightsHistory'
 import type { TrendPoint } from './InsightsHistory'
 import MonthlyRecap from './MonthlyRecap'
+import OverviewTour from './OverviewTour'
 import OverviewWelcome from './OverviewWelcome'
 import RecommendationCard from './RecommendationCard'
 import SpendingMilestones from './SpendingMilestones'
@@ -44,7 +45,7 @@ function InsightsResults({ months, month, selected, change, onSelect, status }: 
       {selected ? <div className="insights-overview" key={selected.month}>
         <section className="insights-card footprint-panel" aria-labelledby="carbon-summary">
           <div className="footprint-heading">
-            <h2 id="carbon-summary">Estimated carbon footprint</h2>
+            <h2 id="carbon-summary" tabIndex={-1}>Estimated carbon footprint</h2>
             <span className="footprint-icon"><Leaf size={22} strokeWidth={1.6} aria-hidden="true" /></span>
           </div>
           <p className="footprint-value data-value">
@@ -88,7 +89,7 @@ function InsightsResults({ months, month, selected, change, onSelect, status }: 
       <div className="insights-grid">
         <InsightsHistory months={months} current={month} onSelect={onSelect} />
         {selected && <section className="insights-card breakdown-panel" aria-labelledby="carbon-categories">
-          <h2 id="carbon-categories">Spending by category</h2>
+          <h2 id="carbon-categories" tabIndex={-1}>Spending by category</h2>
           {ranked.length === 0 ? <p className="quiet-state">No category breakdown for this month.</p> : (
             <ul className="insights-list">
               {ranked.map(({ name, carbonKg, spendGbp }) => {
@@ -112,7 +113,7 @@ function InsightsResults({ months, month, selected, change, onSelect, status }: 
       </div>
 
       {selected && <section className="insights-card recommendations-panel" aria-labelledby="insights-recommendations">
-        <h2 id="insights-recommendations">Recommendations</h2>
+        <h2 id="insights-recommendations" tabIndex={-1}>Recommendations</h2>
         {recommendations.length === 0 ? <p className="quiet-state">No recommendations for this month.</p> : (
           <ul className="insights-recommendations" key={selected.month}>
             {recommendations.map((item) => (
@@ -170,6 +171,7 @@ function LiveInsights({ connection, savedMonth, onAddSpending, introDismissed, o
   const [error, setError] = useState<{ month: string; message: string }>()
   const [attempt, setAttempt] = useState(0)
   const [recapOpen, setRecapOpen] = useState(false)
+  const [tourOpen, setTourOpen] = useState(false)
   const recapTrigger = useRef<HTMLButtonElement>(null)
   const emptyHeading = useRef<HTMLHeadingElement>(null)
 
@@ -213,12 +215,21 @@ function LiveInsights({ connection, savedMonth, onAddSpending, introDismissed, o
     <>
       <div className="overview-actions">
         <MonthPicker months={availableMonths} month={month} onChange={setMonth} />
-        {canOpenRecap && (
-          <button type="button" ref={recapTrigger} className="recap-trigger" aria-haspopup="dialog" onClick={() => setRecapOpen(true)}>
-            <Play size={17} aria-hidden="true" /> View monthly recap
-          </button>
-        )}
+        <div className="overview-action-buttons">
+          {selected && <button type="button" className="button-secondary" aria-expanded={tourOpen}
+            aria-controls={tourOpen ? 'overview-tour' : undefined} onClick={() => setTourOpen((open) => !open)}>
+            <Compass size={17} aria-hidden="true" /> Show me around
+          </button>}
+          {canOpenRecap && (
+            <button type="button" ref={recapTrigger} className="recap-trigger" aria-haspopup="dialog" onClick={() => setRecapOpen(true)}>
+              <Play size={17} aria-hidden="true" /> View monthly recap
+            </button>
+          )}
+        </div>
       </div>
+      {selected && tourOpen && (
+        <OverviewTour hasHistory={months.length > 1} hasRecommendations={selected.recommendations.length > 0} />
+      )}
       {months.length > 0 && <SpendingMilestones count={months.length} />}
       <InsightsResults months={months} month={month} selected={selected} change={change} onSelect={setMonth}
         status={error?.month === month ? (

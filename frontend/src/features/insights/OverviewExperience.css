@@ -59,6 +59,34 @@
 }
 
 .overview-actions .insights-period { margin: 0; }
+.overview-action-buttons { display: flex; flex-wrap: wrap; gap: .65rem; }
+.overview-action-buttons:empty { display: none; }
+.overview-action-buttons button[aria-expanded='true'] { background: var(--blue-soft); }
+
+.overview-tour {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: .55rem;
+  margin-block-end: 1.15rem;
+  padding: .65rem;
+  border: 1px solid var(--line);
+  border-inline-start: 4px solid var(--accent);
+  border-radius: var(--radius-panel);
+  background: linear-gradient(118deg, var(--surface), var(--blue-soft));
+  animation: appear var(--reveal) var(--ease) both;
+}
+.overview-tour button { justify-content: flex-start; text-align: start; }
+.overview-tour button svg:last-child { margin-inline-start: auto; }
+.insights-card h2[tabindex='-1'] { scroll-margin-block-start: 2.5rem; }
+.insights-card:has(h2[tabindex='-1']:focus) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  animation: tour-spotlight var(--reveal) var(--ease);
+}
+@keyframes tour-spotlight {
+  from { outline-offset: 7px; outline-color: transparent; }
+  to { outline-offset: 2px; outline-color: var(--focus); }
+}
 
 .spending-milestones {
   display: grid;
@@ -141,6 +169,8 @@ body:has(.monthly-recap[open]) { overflow: hidden; }
 }
 
 @media (max-width: 450px) {
+  .overview-action-buttons { width: 100%; }
+  .overview-action-buttons > button { flex: 1 1 auto; }
   .recap-trigger { width: 100%; }
   .recap-slide { min-height: 255px; }
 }
