@@ -21,13 +21,13 @@ afterEach(() => vi.unstubAllGlobals())
 describe('SpendingPage', () => {
   // Each entry method should show its own controls and indicate the selected mode.
   it('switches between manual entry and CSV upload', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(Response.json([])))
     const user = userEvent.setup()
     render(<SpendingPage />)
 
     expect(
       screen.getByRole('heading', { name: 'Enter spending manually' })
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Food (£)')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Upload CSV' }))
 
@@ -41,15 +41,15 @@ describe('SpendingPage', () => {
   })
 
   // The entered category amounts should add up in the confirmation for that month.
-  it('saves all manual amounts together as monthly totals', async () => {
+  it('renders top-level categories from the API and saves monthly totals using their IDs', async () => {
     const request = vi.fn()
       .mockResolvedValueOnce(Response.json([
-        { id: 2, name: 'Food', parent_id: null },
-        { id: 1, name: 'Travel', parent_id: null },
-        { id: 3, name: 'Utilities', parent_id: null },
+        { id: 27, name: 'Housing', parent_id: null },
+        { id: 42, name: 'Rent', parent_id: 27 },
+        { id: 31, name: 'Shopping', parent_id: null },
       ]))
       .mockResolvedValueOnce(Response.json({ access_token: 'app-token', user: { id: 'customer' } }))
-      .mockResolvedValueOnce(Response.json({ spendingIds: [42, 43, 44] }))
+      .mockResolvedValueOnce(Response.json({ spendingIds: [42, 43] }))
     vi.stubGlobal('fetch', request)
     const user = userEvent.setup()
     render(<SpendingPage account={account} />)
@@ -57,24 +57,25 @@ describe('SpendingPage', () => {
     fireEvent.change(screen.getByLabelText('Spending month'), {
       target: { value: '2026-03' },
     })
-    await user.type(screen.getByLabelText('Food (£)'), '12.50')
-    await user.type(screen.getByLabelText('Travel (£)'), '20')
-    await user.type(screen.getByLabelText('Utilities (£)'), '30')
+    await user.type(await screen.findByRole('spinbutton', { name: /Housing/ }), '12.50')
+    await user.type(screen.getByRole('spinbutton', { name: /Shopping/ }), '20')
+    expect(screen.queryByRole('spinbutton', { name: /Rent|Food|Travel|Utilities/ })).not.toBeInTheDocument()
     await user.click(
       screen.getByRole('button', { name: 'Save spending' })
     )
 
     expect(
-      await screen.findByText(/Spending saved for 2026-03.*42, 43, 44/)
+      await screen.findByText(/Spending saved for 2026-03.*42, 43/)
     ).toBeInTheDocument()
+    expect(request).toHaveBeenCalledTimes(3)
+    expect(request.mock.calls[0][0]).toMatch(/\/api\/v1\/categories\/$/)
     const [url, options] = request.mock.calls[2]
     expect(url).toMatch(/\/api\/v1\/spend\/batch$/)
     expect(options.headers.Authorization).toBe('Bearer app-token')
     expect(JSON.parse(options.body)).toEqual([
-      { customerID: 'customer', categoryID: 2, month: '2026-03-01', week: null, amount: 12.5 },
-      { customerID: 'customer', categoryID: 1, month: '2026-03-01', week: null, amount: 20 },
-      { customerID: 'customer', categoryID: 3, month: '2026-03-01', week: null, amount: 30 },
+      { customerID: 'customer', categoryID: 27, month: '2026-03-01', week: null, amount: 12.5 },
+      { customerID: 'customer', categoryID: 31, month: '2026-03-01', week: null, amount: 20 },
     ])
-    expect(screen.getByText('£62.50')).toBeInTheDocument()
+    expect(screen.getByText('£32.50')).toBeInTheDocument()
   })
 })

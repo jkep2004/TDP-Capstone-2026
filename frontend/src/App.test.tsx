@@ -11,9 +11,9 @@ import {
 
 import App from './App'
 import { loginRequest } from './authConfig'
-import { callApi, getInsights } from './api'
+import { callApi, getCategories, getInsights } from './api'
 
-vi.mock('./api', () => ({ callApi: vi.fn(), getInsights: vi.fn() }))
+vi.mock('./api', () => ({ callApi: vi.fn(), getCategories: vi.fn(), getInsights: vi.fn() }))
 
 vi.mock('@azure/msal-react', () => ({
   useIsAuthenticated: vi.fn(),
@@ -47,6 +47,7 @@ function setAuthenticationState(authenticated: boolean) {
 describe('App', () => {
   beforeEach(() => {
     vi.mocked(getInsights).mockReset()
+    vi.mocked(getCategories).mockResolvedValue([])
     vi.mocked(getInsights).mockResolvedValue({ months: [], loadMonth: vi.fn() })
     vi.mocked(callApi).mockReset()
     vi.mocked(callApi).mockResolvedValue({})
