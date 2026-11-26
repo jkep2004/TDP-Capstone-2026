@@ -1,10 +1,10 @@
 import { beforeEach, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { getCategories, saveSpending } from './api'
+import { getCategories, saveSpending } from '../../services/api'
 import SpendingForm from './SpendingForm'
 
-vi.mock('./api', () => ({
+vi.mock('../../services/api', () => ({
   getCategories: vi.fn(),
   saveSpending: vi.fn(),
 }))
@@ -38,7 +38,7 @@ it('starts with saving disabled and lets the customer retry a failed category re
   expect(screen.getByText('Loading spending categories…')).toBeInTheDocument()
   const save = screen.getByRole('button', { name: 'Save spending' })
   expect(save).toBeDisabled()
-  expect(await screen.findByRole('alert')).toHaveTextContent('Could not load categories (HTTP 503)')
+  expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t load spending categories. Please try again.')
   expect(save).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'Retry loading categories' }))
 
@@ -81,13 +81,14 @@ it.each(['-1', '0.001', '100001'])('blocks an invalid amount of %s', async (amou
   await user.click(screen.getByRole('button', { name: 'Save spending' }))
 
   expect(food).toBeInvalid()
+  expect(screen.getByRole('alert')).toHaveTextContent('Enter amounts between £0 and £100,000')
   expect(saveSpending).not.toHaveBeenCalled()
 })
 
 it('keeps entered amounts after a failed save and allows a retry', async () => {
   vi.mocked(saveSpending)
     .mockRejectedValueOnce(new Error('Save failed (HTTP 503)'))
-    .mockResolvedValueOnce({ spendingIds: [11, 12, 13] })
+    .mockResolvedValueOnce(undefined)
   const user = userEvent.setup()
   render(<SpendingForm month="2026-03" account={account} />)
   const food = await screen.findByRole('spinbutton', { name: /Food/ })
@@ -97,13 +98,35 @@ it('keeps entered amounts after a failed save and allows a retry', async () => {
   await user.type(screen.getByRole('spinbutton', { name: /Utilities/ }), '0')
   await user.click(save)
 
-  expect(await screen.findByRole('alert')).toHaveTextContent('Save failed (HTTP 503)')
+  expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t save your spending. Please try again.')
   expect(food).toHaveValue(0.1)
   expect(save).toBeEnabled()
   await user.click(save)
 
-  expect(await screen.findByText(/Spending saved for 2026-03 \(\u00a30\.30\)/)).toBeInTheDocument()
+  expect(await screen.findByText('Spending saved for March 2026 (£0.30).')).toBeInTheDocument()
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   expect(save).toBeDisabled()
   expect(saveSpending).toHaveBeenCalledTimes(2)
+})
+
+it('waits for the save to complete before opening insights and ignores a second submission', async () => {
+  vi.mocked(getCategories).mockResolvedValueOnce([{ id: 1, name: 'Food', parent_id: null }])
+  let finishSave!: () => void
+  vi.mocked(saveSpending).mockImplementationOnce(() => new Promise<void>((resolve) => { finishSave = resolve }))
+  const onSaved = vi.fn()
+  const user = userEvent.setup()
+  render(<SpendingForm month="2026-03" account={account} onSaved={onSaved} />)
+
+  await user.type(await screen.findByRole('spinbutton', { name: /Food/ }), '15')
+  const save = screen.getByRole('button', { name: 'Save spending' })
+  await user.click(save)
+  fireEvent.submit(save.closest('form')!)
+
+  expect(save).toBeDisabled()
+  expect(saveSpending).toHaveBeenCalledTimes(1)
+  expect(onSaved).not.toHaveBeenCalled()
+
+  finishSave()
+  await screen.findByRole('button', { name: 'Save spending' })
+  expect(onSaved).toHaveBeenCalledExactlyOnceWith('2026-03')
 })

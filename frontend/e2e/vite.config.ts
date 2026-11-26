@@ -10,7 +10,7 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^@azure\/msal-react$/, replacement: msalFixture },
-      { find: /^\.\/msal$/, replacement: msalFixture },
+      { find: /^\.\.?\/auth\/msal$/, replacement: msalFixture },
     ],
   },
 })

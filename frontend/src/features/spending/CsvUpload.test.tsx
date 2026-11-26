@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import CsvUpload from './CsvUpload'
 
 afterEach(() => vi.unstubAllGlobals())
 
-vi.mock('./msal', () => ({
+vi.mock('../../auth/msal', () => ({
   msalInstance: { acquireTokenSilent: vi.fn().mockResolvedValue({ accessToken: 'entra-token' }) },
 }))
 
@@ -25,6 +25,21 @@ function createCsvFile(contents: string) {
 }
 
 describe('CsvUpload', () => {
+  it('previews a spending file dropped onto the upload area', async () => {
+    const user = userEvent.setup()
+    render(<CsvUpload month="2026-10" />)
+    const dropZone = screen.getByRole('group', { name: 'Upload a spending file' })
+    const dataTransfer = { types: ['Files'], files: [createCsvFile('Week,Travel,Food,Utilities\n1,1,2,3')] }
+
+    fireEvent.dragEnter(dropZone, { dataTransfer })
+    expect(dropZone).toHaveAttribute('data-dragging', 'true')
+    fireEvent.drop(dropZone, { dataTransfer })
+    expect(dropZone).toHaveAttribute('data-dragging', 'false')
+    await user.click(screen.getByRole('button', { name: 'Preview spending' }))
+
+    expect(await screen.findByText('£6.00')).toBeInTheDocument()
+  })
+
   it('rejects a week outside the selected month before requesting a calculation', async () => {
     const request = vi.fn()
     vi.stubGlobal('fetch', request)
@@ -34,7 +49,7 @@ describe('CsvUpload', () => {
     await user.upload(screen.getByLabelText('Choose a CSV file'),
       createCsvFile('customer_id,week,travel,food,utilities\n1,6,10,20,30'))
     await user.click(screen.getByRole('button', { name: 'Preview spending' }))
-    const calculate = await screen.findByRole('button', { name: 'Calculate carbon impact' })
+    const calculate = await screen.findByRole('button', { name: 'Estimate carbon impact' })
     await user.click(calculate)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Week numbers must be between 1 and 5')
@@ -59,7 +74,7 @@ describe('CsvUpload', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
     await user.click(preview)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('File could not be read.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t read this file. Please select it again.')
     expect(screen.queryByRole('button', { name: 'Save spending' })).not.toBeInTheDocument()
   })
 
@@ -81,13 +96,13 @@ describe('CsvUpload', () => {
 
     await user.upload(screen.getByLabelText('Choose a CSV file'), createCsvFile(validCsv))
     await user.click(screen.getByRole('button', { name: 'Preview spending' }))
-    await user.selectOptions(await screen.findByLabelText('Customer in file'), '2')
+    await user.selectOptions(await screen.findByLabelText('Spending group'), 'Group 2')
     await user.click(screen.getByRole('button', { name: 'Save spending' }))
 
-    expect(await screen.findByText('Saved 3 entries. IDs: 51, 52, 53.')).toBeInTheDocument()
+    expect(await screen.findByText('Saved 3 entries for October 2026.')).toBeInTheDocument()
     expect(request).toHaveBeenCalledTimes(3)
     const [url, options] = request.mock.calls[2]
-    expect(url).toMatch(/\/api\/v1\/spend\/batch$/)
+    expect(url).toMatch(/\/api\/v1\/spend\/month$/)
     expect(options.headers.Authorization).toBe('Bearer app-token')
     expect(JSON.parse(options.body)).toEqual([1, 2, 3].map((categoryID) => ({
       customerID: 'customer', month: '2026-10-01', week: 1, categoryID, amount: 100,
@@ -110,10 +125,9 @@ describe('CsvUpload', () => {
 
     await user.upload(screen.getByLabelText('Choose a CSV file'), createCsvFile(validCsv))
     await user.click(screen.getByRole('button', { name: 'Preview spending' }))
-    await user.click(await screen.findByRole('button', { name: 'Calculate carbon impact' }))
+    await user.click(await screen.findByRole('button', { name: 'Estimate carbon impact' }))
 
-    expect(await screen.findByText('2 kg CO₂e')).toBeInTheDocument()
-    expect(screen.getByText('Estimated using your uploaded spending and category emission factors.')).toBeInTheDocument()
+    expect(await screen.findByText('Estimated carbon footprint')).toHaveTextContent('2 kg CO₂e')
     expect(request).toHaveBeenCalledTimes(2)
     expect(request.mock.calls[0][0]).toMatch(/\/api\/v1\/categories\/$/)
     const [url, options] = request.mock.calls[1]
@@ -143,7 +157,7 @@ describe('CsvUpload', () => {
     expect(
       await screen.findByRole('heading', { name: 'Spending preview' })
     ).toBeInTheDocument()
-    expect(screen.getByText('Selected month:')).toHaveTextContent('October 2026')
+    expect(screen.getByText(/Check they belong to October 2026/)).toBeInTheDocument()
     expect(
       within(screen.getByRole('table')).getAllByRole('row')
     ).toHaveLength(4)
@@ -163,7 +177,7 @@ describe('CsvUpload', () => {
     await user.click(screen.getByRole('button', { name: 'Preview spending' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Use these columns:'
+      'This file isn’t in the expected spending format.'
     )
   })
 })
