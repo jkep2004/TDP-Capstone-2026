@@ -78,4 +78,43 @@ describe('SpendingPage', () => {
     ])
     expect(screen.getByText('£32.50')).toBeInTheDocument()
   })
+
+  it('saves multiple subcategory amounts with their parent ID and counts each amount once', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(Response.json([
+        { id: 27, name: 'Housing', parent_id: null },
+        { id: 42, name: 'Rent', parent_id: 27 },
+        { id: 43, name: 'Mortgage', parent_id: 27 },
+        { id: 44, name: 'Repairs', parent_id: 27 },
+        { id: 31, name: 'Shopping', parent_id: null },
+        { id: 51, name: 'Clothing', parent_id: 31 },
+      ]))
+      .mockResolvedValueOnce(Response.json({ access_token: 'app-token', user: { id: 'customer' } }))
+      .mockResolvedValueOnce(Response.json({ spendingIds: [101, 102, 103] }))
+    vi.stubGlobal('fetch', request)
+    const user = userEvent.setup()
+    render(<SpendingPage account={account} />)
+
+    fireEvent.change(screen.getByLabelText('Spending month'), { target: { value: '2026-03' } })
+    await user.type(await screen.findByRole('spinbutton', { name: /Housing/ }), '500')
+    const breakdown = screen.getByRole('checkbox', { name: 'By subcategory for Housing' })
+    await user.click(breakdown)
+    expect(screen.queryByRole('spinbutton', { name: /Housing|Clothing/ })).not.toBeInTheDocument()
+    await user.type(screen.getByRole('spinbutton', { name: /Rent/ }), '120.10')
+    await user.type(screen.getByRole('spinbutton', { name: /Mortgage/ }), '15.20')
+    await user.click(breakdown)
+    expect(screen.getByRole('spinbutton', { name: /Housing/ })).toHaveValue(500)
+    await user.click(breakdown)
+    await user.type(screen.getByRole('spinbutton', { name: /Shopping/ }), '20')
+    expect(screen.getByText('£155.30')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save spending' }))
+
+    expect(await screen.findByText(/Spending saved for 2026-03.*101, 102, 103/)).toBeInTheDocument()
+    expect(request).toHaveBeenCalledTimes(3)
+    expect(JSON.parse(request.mock.calls[2][1].body)).toEqual([
+      { customerID: 'customer', categoryID: 27, subcategoryID: 42, month: '2026-03-01', week: null, amount: 120.1 },
+      { customerID: 'customer', categoryID: 27, subcategoryID: 43, month: '2026-03-01', week: null, amount: 15.2 },
+      { customerID: 'customer', categoryID: 31, month: '2026-03-01', week: null, amount: 20 },
+    ])
+  })
 })

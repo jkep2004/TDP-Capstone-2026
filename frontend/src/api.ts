@@ -20,6 +20,7 @@ type SpendingEntry = {
   month: string;
   week: number;
   categoryID: number;
+  subcategoryID?: number;
   amount: number;
 };
 

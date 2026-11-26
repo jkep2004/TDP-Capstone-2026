@@ -44,7 +44,7 @@ function SpendingPage({ account }: { account?: AccountInfo } = {}) {
         </h2>
         <p id="spending-help" className="help-text">
           {mode === 'manual'
-            ? 'All amounts are in pounds (£). Enter 0 if you spent nothing in a category.'
+            ? 'Enter monthly totals in pounds (£), or break them down by subcategory. Enter 0 for an unused category total. You can leave unused subcategories blank.'
             : 'Choose the month that this CSV would apply to.'}
         </p>
 

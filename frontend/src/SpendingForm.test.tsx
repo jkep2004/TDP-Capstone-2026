@@ -56,6 +56,21 @@ it('shows an empty state and disables saving when the API returns no categories'
   expect(screen.getByRole('button', { name: 'Save spending' })).toBeDisabled()
 })
 
+it('blocks a save when every subcategory amount is blank', async () => {
+  vi.mocked(getCategories).mockResolvedValueOnce([
+    { id: 1, name: 'Food', parent_id: null },
+    { id: 2, name: 'Groceries', parent_id: 1 },
+  ])
+  const user = userEvent.setup()
+  render(<SpendingForm month="2026-03" account={account} />)
+
+  await user.click(await screen.findByRole('checkbox', { name: 'By subcategory for Food' }))
+  await user.click(screen.getByRole('button', { name: 'Save spending' }))
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Enter at least one spending amount.')
+  expect(saveSpending).not.toHaveBeenCalled()
+})
+
 it.each(['-1', '0.001', '100001'])('blocks an invalid amount of %s', async (amount) => {
   const user = userEvent.setup()
   render(<SpendingForm month="2026-03" account={account} />)
