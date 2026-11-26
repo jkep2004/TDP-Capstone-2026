@@ -3,6 +3,33 @@ import { describe, expect, it } from 'vitest'
 import { parseSpendingCsv } from './parseSpendingCsv'
 
 describe('parseSpendingCsv', () => {
+  const header = 'customer_id,week,travel,food,utilities'
+
+  it('rejects a header-only file with blank lines', () => {
+    expect(() => parseSpendingCsv(`${header}\n\n`)).toThrow('The file contains no spending records.')
+  })
+
+  it('rejects a row with missing fields', () => {
+    expect(() => parseSpendingCsv(`${header}\n1,1,10,20`)).toThrow('The CSV could not be parsed.')
+  })
+
+  it.each([
+    ['0,1,10,20,30', 'customer_id must be a positive whole number'],
+    ['1,1.5,10,20,30', 'week must be a positive whole number'],
+    ['1,1,-10,20,30', 'travel must be a non-negative amount'],
+    ['1,1,10,,30', 'food must be a non-negative amount'],
+    ['1,1,10,20,90071992547409.92', 'utilities must be a non-negative amount'],
+  ])('rejects invalid record %s', (row, message) => {
+    expect(() => parseSpendingCsv(`${header}\n${row}`)).toThrow(`Record 1: ${message}`)
+  })
+
+  it('allows different customers to use the same week', () => {
+    expect(parseSpendingCsv(`${header}\n1,1,0,0,0\n2,1,0,0,0`)).toEqual([
+      { customer_id: 1, week: 1, travel: 0, food: 0, utilities: 0 },
+      { customer_id: 2, week: 1, travel: 0, food: 0, utilities: 0 },
+    ])
+  })
+
   // Valid CSV text should become typed rows with numeric values.
   it('converts valid CSV records into typed spending rows', () => {
     const csv =

@@ -1,0 +1,67 @@
+import { beforeEach, expect, it, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { resolveSpendingCategories, saveSpending } from './api'
+import SpendingForm from './SpendingForm'
+
+vi.mock('./api', () => ({
+  resolveSpendingCategories: vi.fn(),
+  saveSpending: vi.fn(),
+}))
+
+const account = {
+  homeAccountId: 'home', localAccountId: 'local', tenantId: 'tenant',
+  environment: 'login.microsoftonline.com', username: 'learner@example.com',
+}
+
+beforeEach(() => {
+  vi.resetAllMocks()
+})
+
+it('disables saving when the customer is signed out', () => {
+  render(<SpendingForm month="2026-03" />)
+
+  expect(screen.getByRole('button', { name: 'Save spending' })).toBeDisabled()
+})
+
+it.each(['-1', '0.001', '100001'])('blocks an invalid amount of %s', async (amount) => {
+  const user = userEvent.setup()
+  render(<SpendingForm month="2026-03" account={account} />)
+  const food = screen.getByRole('spinbutton', { name: /Food/ })
+  await user.type(food, amount)
+  await user.type(screen.getByRole('spinbutton', { name: /Travel/ }), '0')
+  await user.type(screen.getByRole('spinbutton', { name: /Utilities/ }), '0')
+  await user.click(screen.getByRole('button', { name: 'Save spending' }))
+
+  expect(food).toBeInvalid()
+  expect(resolveSpendingCategories).not.toHaveBeenCalled()
+})
+
+it('keeps entered amounts after a failed save and allows a retry', async () => {
+  vi.mocked(resolveSpendingCategories).mockResolvedValue([
+    { category: 'food', categoryID: 1 },
+    { category: 'travel', categoryID: 2 },
+    { category: 'utilities', categoryID: 3 },
+  ])
+  vi.mocked(saveSpending)
+    .mockRejectedValueOnce(new Error('Save failed (HTTP 503)'))
+    .mockResolvedValueOnce({ spendingIds: [11, 12, 13] })
+  const user = userEvent.setup()
+  render(<SpendingForm month="2026-03" account={account} />)
+  const food = screen.getByRole('spinbutton', { name: /Food/ })
+  const save = screen.getByRole('button', { name: 'Save spending' })
+  await user.type(food, '0.10')
+  await user.type(screen.getByRole('spinbutton', { name: /Travel/ }), '0.20')
+  await user.type(screen.getByRole('spinbutton', { name: /Utilities/ }), '0')
+  await user.click(save)
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Save failed (HTTP 503)')
+  expect(food).toHaveValue(0.1)
+  expect(save).toBeEnabled()
+  await user.click(save)
+
+  expect(await screen.findByText(/Spending saved for 2026-03 \(\u00a30\.30\)/)).toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(save).toBeDisabled()
+  expect(saveSpending).toHaveBeenCalledTimes(2)
+})

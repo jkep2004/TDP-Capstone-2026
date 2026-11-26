@@ -25,6 +25,44 @@ function createCsvFile(contents: string) {
 }
 
 describe('CsvUpload', () => {
+  it('rejects a week outside the selected month before requesting a calculation', async () => {
+    const request = vi.fn()
+    vi.stubGlobal('fetch', request)
+    const user = userEvent.setup()
+    render(<CsvUpload month="2026-10" customerId="customer" />)
+
+    await user.upload(screen.getByLabelText('Choose a CSV file'),
+      createCsvFile('customer_id,week,travel,food,utilities\n1,6,10,20,30'))
+    await user.click(screen.getByRole('button', { name: 'Preview spending' }))
+    const calculate = await screen.findByRole('button', { name: 'Calculate carbon impact' })
+    await user.click(calculate)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Week numbers must be between 1 and 5')
+    expect(calculate).toBeEnabled()
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('clears a previous preview when a replacement file cannot be read', async () => {
+    const user = userEvent.setup()
+    render(<CsvUpload month="2026-10" />)
+    const input = screen.getByLabelText('Choose a CSV file')
+    const preview = screen.getByRole('button', { name: 'Preview spending' })
+    await user.upload(input, createCsvFile(validCsv))
+    await user.click(preview)
+    expect(await screen.findByRole('table')).toBeInTheDocument()
+
+    const unreadable = new File([], 'unreadable.csv', { type: 'text/csv' })
+    Object.defineProperty(unreadable, 'text', {
+      value: vi.fn().mockRejectedValue(new Error('File could not be read.')),
+    })
+    await user.upload(input, unreadable)
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    await user.click(preview)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('File could not be read.')
+    expect(screen.queryByRole('button', { name: 'Save spending' })).not.toBeInTheDocument()
+  })
+
   it('saves all previewed categories and weeks in one authenticated request', async () => {
     const request = vi.fn()
       .mockResolvedValueOnce(Response.json([
