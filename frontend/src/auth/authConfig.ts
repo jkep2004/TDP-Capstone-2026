@@ -12,7 +12,8 @@ export const msalConfig: Configuration = {
   },
   system: {
     loggerOptions: {
-      logLevel: LogLevel.Info, // TODO: Change to LogLevel.Error in production
+      logLevel: LogLevel.Error,
+      piiLoggingEnabled: false,
     }
   }
 };

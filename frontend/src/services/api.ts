@@ -1,6 +1,8 @@
-import { msalInstance } from "./msal";
-import { loginRequest } from "./authConfig";
+import { msalInstance } from "../auth/msal";
+import { loginRequest } from "../auth/authConfig";
 import type { AccountInfo } from "@azure/msal-browser";
+import { InteractionRequiredAuthError } from "@azure/msal-browser";
+import { CustomerError } from "../utils/customerError";
 
 const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const insightsApiUrl = (import.meta.env.VITE_INSIGHTS_API_URL || apiUrl).replace(/\/+$/, "");
@@ -40,6 +42,9 @@ export async function calculateSpending(spending: SpendingEntry[]) {
     body: JSON.stringify({ spending })
   });
   if (!response.ok) {
+    if (response.status === 422) {
+      throw new CustomerError("Calculation failed (HTTP 422)", "Check the weeks and amounts in your file, then try again.");
+    }
     throw new Error(`Calculation failed (HTTP ${response.status})`);
   }
   return response.json() as Promise<{
@@ -49,28 +54,31 @@ export async function calculateSpending(spending: SpendingEntry[]) {
 }
 
 async function exchangeToken(
-  account: AccountInfo | undefined =
-    msalInstance.getActiveAccount() ??
-    msalInstance.getAllAccounts()[0],
-  baseUrl = apiUrl
+  account: AccountInfo,
+  baseUrl = apiUrl,
+  signal?: AbortSignal
 ) {
-
-  if (!account) {
-    throw new Error("User not authenticated");
-  }
-
   const entraToken = await msalInstance.acquireTokenSilent({
     ...loginRequest,
     account
+  }).catch((error: unknown) => {
+    if (error instanceof InteractionRequiredAuthError) {
+      throw new CustomerError(error.message, "Please sign out and sign in again.");
+    }
+    throw error;
   });
 
   const authResponse = await fetch(`${baseUrl}/api/v1/auth/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: entraToken.accessToken })
+    body: JSON.stringify({ token: entraToken.accessToken }),
+    signal,
   });
 
   if (!authResponse.ok) {
+    if (authResponse.status === 401 || authResponse.status === 403) {
+      throw new CustomerError(`Token exchange failed (${authResponse.status})`, "Please sign out and sign in again.");
+    }
     throw new Error(`Token exchange failed (${authResponse.status})`);
   }
 
@@ -78,7 +86,7 @@ async function exchangeToken(
 }
 
 export async function getInsights(account: AccountInfo, signal: AbortSignal) {
-  const { access_token } = await exchangeToken(account, insightsApiUrl);
+  const { access_token } = await exchangeToken(account, insightsApiUrl, signal);
   const headers = { Authorization: `Bearer ${access_token}` };
 
   async function get<T>(path: string, requestSignal: AbortSignal): Promise<T> {
@@ -87,15 +95,20 @@ export async function getInsights(account: AccountInfo, signal: AbortSignal) {
     return response.json();
   }
 
-  const trends = await get<{ months: { month: string; total_carbon_kg: number }[] }>("trends/", signal);
+  const trends = await get<{ months: { month: string; total_carbon_kg: number | null; total_spend_gbp: number | null }[] }>("trends/?months=12", signal);
   return {
-    months: trends.months.map((point) => ({ month: point.month.slice(0, 7), totalCarbonKg: point.total_carbon_kg })),
+    months: trends.months.map((point) => ({
+      month: point.month.slice(0, 7),
+      totalCarbonKg: point.total_carbon_kg ?? null,
+      totalSpendGbp: point.total_spend_gbp ?? null,
+    })),
     async loadMonth(month: string, monthSignal: AbortSignal) {
       const query = `?month=${month}-01`;
       const [summary, recommendations, savings] = await Promise.all([
         get<{
+          total_spend_gbp: number;
           total_carbon_kg: number;
-          categories: { category: string; carbon_kg: number | null }[];
+          categories: { category: string; carbon_kg: number | null; monthly_spend_gbp: number }[];
         }>(`summary/${query}`, monthSignal),
         get<{ recommendations: {
           category: string;
@@ -107,8 +120,9 @@ export async function getInsights(account: AccountInfo, signal: AbortSignal) {
       ]);
       return {
         month,
+        totalSpendGbp: summary.total_spend_gbp,
         totalCarbonKg: summary.total_carbon_kg,
-        categories: summary.categories.map((item) => ({ name: item.category, carbonKg: item.carbon_kg })),
+        categories: summary.categories.map((item) => ({ name: item.category, carbonKg: item.carbon_kg, spendGbp: item.monthly_spend_gbp })),
         recommendations: recommendations.recommendations.map((item) => ({
           category: item.category,
           advice: item.advice,
@@ -123,36 +137,39 @@ export async function getInsights(account: AccountInfo, signal: AbortSignal) {
 
 export async function saveSpending(
   entries: (Omit<SpendingEntry, "customerID" | "week"> & { week: number | null })[],
-  account: AccountInfo
-) {
+  account: AccountInfo,
+  confirmReplacement?: () => Promise<boolean>,
+): Promise<void | false> {
   const session = await exchangeToken(account);
-  const response = await fetch(`${apiUrl}/api/v1/spend/batch`, {
-    method: "POST",
+  const request = {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${session.access_token}`
     },
     body: JSON.stringify(entries.map((entry) => ({ ...entry, customerID: session.user.id })))
-  });
+  };
+  const url = `${apiUrl}/api/v1/spend/month`;
+  let response = await fetch(url, { ...request, method: "POST" });
+  if (response.status === 409 && confirmReplacement) {
+    const conflict = await response.json().catch(() => null);
+    if (conflict?.detail?.code === "spending_month_exists") {
+      if (!await confirmReplacement()) return false;
+      response = await fetch(url, { ...request, method: "PUT" });
+    }
+  }
   if (!response.ok) {
+    if (response.status === 404 || response.status === 405) {
+      throw new CustomerError(`Save failed (HTTP ${response.status})`, "Saving spending is temporarily unavailable. Please try again later.");
+    }
     if (response.status === 409) {
-      const { detail } = await response.json();
-      if (typeof detail === "string") throw new Error(detail);
+      throw new CustomerError(
+        "Save failed (HTTP 409)",
+        "Some of this spending has already been saved for the selected month. Choose another month or review your entries and try again."
+      );
+    }
+    if (response.status === 422) {
+      throw new CustomerError("Save failed (HTTP 422)", "Check the month and spending amounts, then try again.");
     }
     throw new Error(`Save failed (HTTP ${response.status})`);
   }
-  return response.json() as Promise<{ spendingIds: number[] }>;
-}
-
-export async function callApi(account?: AccountInfo) {
-  const { access_token: appToken } = await exchangeToken(account);
-  const userResponse = await fetch(`${apiUrl}/api/user`, {
-    headers: { Authorization: `Bearer ${appToken}` }
-  });
-
-  if (!userResponse.ok) {
-    throw new Error(`User request failed (${userResponse.status})`);
-  }
-
-  return userResponse.json();
 }

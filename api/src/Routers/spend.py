@@ -1,5 +1,7 @@
 
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Literal
+
+from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -76,8 +78,54 @@ def create_spend_batch(
     return {"spendingIds": save_entries(spending, db, user)}
 
 
-def save_entries(spending, db, user):
+@router.post(
+    "/month",
+    summary="Save spending for a new month",
+    responses={409: {"description": "Spending already exists for this month"}},
+)
+def create_spending_month(
+    spending: list[SaveSpendingItem] = Body(min_length=1),
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    return {"spendingIds": save_entries(spending, db, user, "create-month")}
+
+
+@router.put("/month", summary="Replace all spending for one month")
+def replace_spending_month(
+    spending: list[SaveSpendingItem] = Body(min_length=1),
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    return {"spendingIds": save_entries(spending, db, user, "replace-month")}
+
+
+def save_entries(spending, db, user, mode: Literal["append", "create-month", "replace-month"] = "append"):
     try:
+        customer_id = user["user_id"]
+        if any(str(item.customerID) != str(customer_id).lower() for item in spending):
+            raise HTTPException(status_code=403, detail="Customer ID does not match authenticated user")
+        if mode != "append":
+            month = spending[0].month
+            if month.day != 1 or any(item.month != month for item in spending):
+                raise HTTPException(status_code=422, detail="Provide entries for one spending month")
+
+            params = {"customer_id": customer_id, "month": month}
+            # Keep the customer's spending key range locked through the commit,
+            # including when the month has no rows yet.
+            existing = db.execute(text("""
+                SELECT COUNT_BIG(*)
+                FROM dbo.Spending WITH (UPDLOCK, HOLDLOCK, INDEX(UQ_Spending_Customer_Category_Month_Week))
+                WHERE CustomerId = :customer_id AND SpendMonth = :month
+            """), params).scalar_one()
+            if existing and mode == "create-month":
+                raise HTTPException(status_code=409, detail={"code": "spending_month_exists"})
+            if existing:
+                db.execute(text("""
+                    DELETE FROM dbo.Spending
+                    WHERE CustomerId = :customer_id AND SpendMonth = :month
+                """), params)
+
         ids = [insert_spending_entry(item, db, user) for item in spending]
         db.commit()
         return ids
@@ -95,13 +143,6 @@ def insert_spending_entry(spend_data, db, user):
     parent_category_id = spend_data.categoryID
     logger.info("Creating spend entry", customer_id=customer_id, category_id=parent_category_id, subcategory_id=spend_data.subcategoryID)
     
-    if str(spend_data.customerID) != str(customer_id).lower():
-        logger.error("ERROR: Customer ID does not match authenticated user", customer_id=spend_data.customerID, authenticated_user_id=customer_id)
-        raise HTTPException(
-            status_code=403,
-            detail="Customer ID does not match authenticated user"
-        )
-
     # Confirm that the parent category exists
     category_query = text("""
         SELECT CategoryId

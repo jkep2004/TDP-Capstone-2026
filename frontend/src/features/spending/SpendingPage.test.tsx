@@ -12,7 +12,7 @@ const account = {
   username: 'learner@example.com',
 }
 
-vi.mock('./msal', () => ({
+vi.mock('../../auth/msal', () => ({
   msalInstance: { acquireTokenSilent: vi.fn().mockResolvedValue({ accessToken: 'entra-token' }) },
 }))
 
@@ -65,12 +65,12 @@ describe('SpendingPage', () => {
     )
 
     expect(
-      await screen.findByText(/Spending saved for 2026-03.*42, 43/)
+      await screen.findByText('Spending saved for March 2026 (£32.50).')
     ).toBeInTheDocument()
     expect(request).toHaveBeenCalledTimes(3)
     expect(request.mock.calls[0][0]).toMatch(/\/api\/v1\/categories\/$/)
     const [url, options] = request.mock.calls[2]
-    expect(url).toMatch(/\/api\/v1\/spend\/batch$/)
+    expect(url).toMatch(/\/api\/v1\/spend\/month$/)
     expect(options.headers.Authorization).toBe('Bearer app-token')
     expect(JSON.parse(options.body)).toEqual([
       { customerID: 'customer', categoryID: 27, month: '2026-03-01', week: null, amount: 12.5 },
@@ -109,7 +109,7 @@ describe('SpendingPage', () => {
     expect(screen.getByText('£155.30')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Save spending' }))
 
-    expect(await screen.findByText(/Spending saved for 2026-03.*101, 102, 103/)).toBeInTheDocument()
+    expect(await screen.findByText('Spending saved for March 2026 (£155.30).')).toBeInTheDocument()
     expect(request).toHaveBeenCalledTimes(3)
     expect(JSON.parse(request.mock.calls[2][1].body)).toEqual([
       { customerID: 'customer', categoryID: 27, subcategoryID: 42, month: '2026-03-01', week: null, amount: 120.1 },

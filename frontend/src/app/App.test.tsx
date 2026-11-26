@@ -10,10 +10,10 @@ import {
 } from '@azure/msal-browser'
 
 import App from './App'
-import { loginRequest } from './authConfig'
-import { callApi, getCategories, getInsights } from './api'
+import { loginRequest } from '../auth/authConfig'
+import { getCategories, getInsights } from '../services/api'
 
-vi.mock('./api', () => ({ callApi: vi.fn(), getCategories: vi.fn(), getInsights: vi.fn() }))
+vi.mock('../services/api', () => ({ getCategories: vi.fn(), getInsights: vi.fn() }))
 
 vi.mock('@azure/msal-react', () => ({
   useIsAuthenticated: vi.fn(),
@@ -49,8 +49,6 @@ describe('App', () => {
     vi.mocked(getInsights).mockReset()
     vi.mocked(getCategories).mockResolvedValue([])
     vi.mocked(getInsights).mockResolvedValue({ months: [], loadMonth: vi.fn() })
-    vi.mocked(callApi).mockReset()
-    vi.mocked(callApi).mockResolvedValue({})
     loginRedirect.mockReset()
     loginRedirect.mockResolvedValue(undefined)
     logoutRedirect.mockReset()
@@ -63,7 +61,7 @@ describe('App', () => {
     render(<App />)
 
     expect(
-      screen.getByRole('heading', { name: 'Welcome' })
+      screen.getByRole('heading', { name: 'Sign in to your account' })
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Sign in with Microsoft' })
@@ -96,35 +94,37 @@ describe('App', () => {
     )
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Sign-in unavailable'
+      'We couldn’t start sign-in. Please try again.'
     )
   })
 
-  it('shows the empty insights state and lets users return to spending', async () => {
+  it('lets first-time customers skip the intro and add spending from the overview', async () => {
     setAuthenticationState(true)
     const user = userEvent.setup()
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: 'Insights' }))
     expect(screen.getByRole('heading', { name: 'Spending insights' })).toBeInTheDocument()
-    expect(await screen.findByText('No spending insights yet. Save spending to see a monthly summary.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Start with one month' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Skip for now' }))
+    expect(await screen.findByRole('heading', { name: 'No spending insights yet' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'View example' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Spending' }))
+    await user.click(screen.getByRole('button', { name: 'Add your first month' }))
     expect(screen.getByRole('heading', { name: 'Monthly spending' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Overview' }))
+    expect(await screen.findByRole('heading', { name: 'No spending insights yet' })).toBeInTheDocument()
   })
 
   it('shows the spending page and supports signing out when authenticated', async () => {
     setAuthenticationState(true)
     const user = userEvent.setup()
     render(<App />)
-    expect(await screen.findByText('API session verified')).toBeInTheDocument()
-    expect(callApi).toHaveBeenCalledWith(testAccount)
-
+    await user.click(screen.getByRole('button', { name: 'Add spending' }))
     expect(
       screen.getByRole('heading', { name: 'Monthly spending' })
     ).toBeInTheDocument()
-    expect(screen.getByText('learner@example.com')).toBeInTheDocument()
+    expect(screen.queryByText(/API session/)).not.toBeInTheDocument()
+    expect(screen.queryByText('learner@example.com')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
 
