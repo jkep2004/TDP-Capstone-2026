@@ -10,10 +10,15 @@ load_dotenv()
 # SQLAlchemy rejects None in the query dict, so only include the driver when
 # DB_DRIVER is set. Without it the app can still start (e.g. in CI) and the
 # failure shows up when a connection is actually attempted.
+# query = {
+#     "Encrypt": "yes",
+#     "TrustServerCertificate": "yes",
+#     "driver": "ODBC Driver 18 for SQL Server"
+# }
 query = {
     "Encrypt": "yes",
-    "TrustServerCertificate": "no",
-    "driver": "ODBC Driver 18 for SQL Server"
+    "TrustServerCertificate": os.getenv("DB_TRUST_SERVER_CERTIFICATE", "no"),
+    "driver": os.getenv("DB_DRIVER", "ODBC Driver 18 for SQL Server"),
 }
 
 connection_url = URL.create(

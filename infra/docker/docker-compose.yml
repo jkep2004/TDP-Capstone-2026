@@ -26,8 +26,12 @@ services:
     env_file:
       - .env # Load environment variables from .env file
     environment:
-      DB_SERVER: "sqlserver,1433"
-      DB_USER: "sa"
+      DB_SERVER: "sqlserver" 
+      DB_ADMIN_USER: "sa"
+      ENTRA_TENANT_ID: ${ENTRA_TENANT_ID}
+      ENTRA_API_CLIENT_ID: ${ENTRA_API_CLIENT_ID}
+      APP_JWT_SECRET: ${APP_JWT_SECRET}
+      DB_TRUST_SERVER_CERTIFICATE: ${DB_TRUST_SERVER_CERTIFICATE:-yes} # Default to "no" if not set
     ports:
       - "8000:8000" # FastAPI default port
     depends_on:
