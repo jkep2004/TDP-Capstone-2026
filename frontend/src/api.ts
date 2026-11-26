@@ -1,6 +1,8 @@
 import { msalInstance } from "./msal";
 import { loginRequest } from "./authConfig";
 import type { AccountInfo } from "@azure/msal-browser";
+import { InteractionRequiredAuthError } from "@azure/msal-browser";
+import { CustomerError } from "./utils/customerError";
 
 const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const insightsApiUrl = (import.meta.env.VITE_INSIGHTS_API_URL || apiUrl).replace(/\/+$/, "");
@@ -49,19 +51,17 @@ export async function calculateSpending(spending: SpendingEntry[]) {
 }
 
 async function exchangeToken(
-  account: AccountInfo | undefined =
-    msalInstance.getActiveAccount() ??
-    msalInstance.getAllAccounts()[0],
+  account: AccountInfo,
   baseUrl = apiUrl
 ) {
-
-  if (!account) {
-    throw new Error("User not authenticated");
-  }
-
   const entraToken = await msalInstance.acquireTokenSilent({
     ...loginRequest,
     account
+  }).catch((error: unknown) => {
+    if (error instanceof InteractionRequiredAuthError) {
+      throw new CustomerError(error.message, "Please sign out and sign in again.");
+    }
+    throw error;
   });
 
   const authResponse = await fetch(`${baseUrl}/api/v1/auth/`, {
@@ -71,6 +71,9 @@ async function exchangeToken(
   });
 
   if (!authResponse.ok) {
+    if (authResponse.status === 401 || authResponse.status === 403) {
+      throw new CustomerError(`Token exchange failed (${authResponse.status})`, "Please sign out and sign in again.");
+    }
     throw new Error(`Token exchange failed (${authResponse.status})`);
   }
 
@@ -136,23 +139,12 @@ export async function saveSpending(
   });
   if (!response.ok) {
     if (response.status === 409) {
-      const { detail } = await response.json();
-      if (typeof detail === "string") throw new Error(detail);
+      throw new CustomerError(
+        "Save failed (HTTP 409)",
+        "Some of this spending has already been saved for the selected month. Choose another month or review your entries and try again."
+      );
     }
     throw new Error(`Save failed (HTTP ${response.status})`);
   }
   return response.json() as Promise<{ spendingIds: number[] }>;
-}
-
-export async function callApi(account?: AccountInfo) {
-  const { access_token: appToken } = await exchangeToken(account);
-  const userResponse = await fetch(`${apiUrl}/api/user`, {
-    headers: { Authorization: `Bearer ${appToken}` }
-  });
-
-  if (!userResponse.ok) {
-    throw new Error(`User request failed (${userResponse.status})`);
-  }
-
-  return userResponse.json();
 }

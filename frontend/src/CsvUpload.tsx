@@ -3,6 +3,8 @@ import type { AccountInfo } from '@azure/msal-browser'
 import { parseSpendingCsv } from './utils/parseSpendingCsv'
 import type { SpendingRow } from './utils/parseSpendingCsv'
 import { calculateSpending, resolveSpendingCategories, saveSpending } from './api'
+import { CustomerError, customerErrorMessage } from './utils/customerError'
+import { formatMonth } from './utils/formatMonth'
 
 const categories = ['travel', 'food', 'utilities'] as const
 
@@ -28,7 +30,7 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
   const [calculationError, setCalculationError] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [saved, setSaved] = useState<{ month: string; ids: number[] }>()
+  const [saved, setSaved] = useState<{ month: string; count: number }>()
   const busy = isReading || isCalculating || saving
 
   const clearCalculation = () => {
@@ -38,7 +40,7 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
 
   const buildEntries = async () => {
     if (rows.some((row) => row.week > 5)) {
-      throw new Error('Week numbers must be between 1 and 5 within the selected month.')
+      throw new CustomerError('Week numbers must be between 1 and 5 within the selected month.')
     }
     const categoryIds = await resolveSpendingCategories(categories)
     const entries = rows.flatMap((row) =>
@@ -57,9 +59,9 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
     try {
       const { entries } = await buildEntries()
       const result = await saveSpending(entries, account)
-      setSaved({ month, ids: result.spendingIds })
+      setSaved({ month, count: result.spendingIds.length })
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Could not save spending.')
+      setSaveError(customerErrorMessage(error, 'We couldn’t save your spending. Please try again.'))
     } finally {
       setSaving(false)
     }
@@ -81,19 +83,13 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
         })),
       })
     } catch (error) {
-      setCalculationError(error instanceof Error ? error.message : 'Calculation failed.')
+      setCalculationError(customerErrorMessage(error, 'We couldn’t calculate your carbon impact. Please try again.'))
     } finally {
       setIsCalculating(false)
     }
   }
 
-  const selectedMonth = month
-    ? new Intl.DateTimeFormat('en-GB', {
-        month: 'long',
-        year: 'numeric',
-        timeZone: 'UTC',
-      }).format(new Date(`${month}-01T00:00:00Z`))
-    : 'No month selected'
+  const selectedMonth = month ? formatMonth(month) : 'No month selected'
 
   const readFile = async () => {
     if (!file) {
@@ -108,7 +104,9 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
     setIsReading(true)
 
     try {
-      const text = await file.text()
+      const text = await file.text().catch(() => {
+        throw new Error('We couldn’t read this file. Please select it again.')
+      })
       const parsedRows = parseSpendingCsv(text)
 
       setFileRows(parsedRows)
@@ -266,7 +264,9 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
             {saving ? 'Saving…' : 'Save spending'}
           </button>
           {saveError && <p role="alert">{saveError}</p>}
-          {saved?.month === month && <p role="status">Saved {saved.ids.length} entries. IDs: {saved.ids.join(', ')}.</p>}
+          {saved?.month === month && (
+            <p role="status">Saved {saved.count} {saved.count === 1 ? 'entry' : 'entries'} for {selectedMonth}.</p>
+          )}
           <button type="button" onClick={calculate} disabled={busy || !month || !customerId}>
             {isCalculating ? 'Calculating…' : 'Calculate carbon impact'}
           </button>

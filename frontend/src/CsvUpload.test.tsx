@@ -59,7 +59,7 @@ describe('CsvUpload', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
     await user.click(preview)
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('File could not be read.')
+    expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t read this file. Please select it again.')
     expect(screen.queryByRole('button', { name: 'Save spending' })).not.toBeInTheDocument()
   })
 
@@ -84,7 +84,7 @@ describe('CsvUpload', () => {
     await user.selectOptions(await screen.findByLabelText('Customer in file'), '2')
     await user.click(screen.getByRole('button', { name: 'Save spending' }))
 
-    expect(await screen.findByText('Saved 3 entries. IDs: 51, 52, 53.')).toBeInTheDocument()
+    expect(await screen.findByText('Saved 3 entries for October 2026.')).toBeInTheDocument()
     expect(request).toHaveBeenCalledTimes(3)
     const [url, options] = request.mock.calls[2]
     expect(url).toMatch(/\/api\/v1\/spend\/batch$/)

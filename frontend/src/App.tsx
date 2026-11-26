@@ -1,44 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   useIsAuthenticated,
   useMsal,
 } from '@azure/msal-react'
-import { InteractionStatus } from '@azure/msal-browser'
 
 import { loginRequest } from './authConfig'
-import { callApi } from './api'
 import SpendingPage from './SpendingPage'
 import InsightsPage from './InsightsPage'
 import './App.css'
 
 function App() {
-  const { instance, accounts, inProgress } = useMsal()
+  const { instance, accounts } = useMsal()
   const isAuthenticated = useIsAuthenticated()
   const [loginError, setLoginError] = useState('')
   const [isSigningIn, setIsSigningIn] = useState(false)
-  const [apiResult, setApiResult] = useState<{ accountId: string; error?: string }>()
   const account = accounts[0]
   const [section, setSection] = useState<'spending' | 'insights'>('spending')
-  const currentApiResult = apiResult?.accountId === account?.homeAccountId ? apiResult : undefined
-
-  useEffect(() => {
-    if (!account || inProgress !== InteractionStatus.None) return
-
-    let active = true
-    callApi(account).then(() => {
-      if (active) setApiResult({ accountId: account.homeAccountId })
-    }).catch((error: unknown) => {
-      if (!active) return
-      setApiResult({
-        accountId: account.homeAccountId,
-        error: error instanceof Error ? error.message : 'API session verification failed.',
-      })
-    })
-
-    return () => {
-      active = false
-    }
-  }, [account, inProgress])
 
   const login = async () => {
     setLoginError('')
@@ -46,13 +23,9 @@ function App() {
 
     try {
       await instance.loginRedirect(loginRequest)
-    } catch (error) {
+    } catch {
       setIsSigningIn(false)
-      setLoginError(
-        error instanceof Error
-          ? error.message
-          : 'Sign-in could not be started. Please try again.'
-      )
+      setLoginError('We couldn’t start sign-in. Please try again.')
     }
   }
 
@@ -108,9 +81,6 @@ function App() {
         <span>
           Signed in as <strong>{account?.username ?? 'Microsoft account'}</strong>
         </span>
-        {currentApiResult?.error
-          ? <span role="alert">{currentApiResult.error}</span>
-          : <span role="status">{currentApiResult ? 'API session verified' : 'Verifying API session…'}</span>}
         <button type="button" onClick={logout}>Sign out</button>
       </header>
       <nav className="insights-nav" aria-label="Account sections">

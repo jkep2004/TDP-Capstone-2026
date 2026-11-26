@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { callApi, resolveSpendingCategories, saveSpending } from './api'
+import { InteractionRequiredAuthError } from '@azure/msal-browser'
+import { resolveSpendingCategories, saveSpending } from './api'
 import { msalInstance } from './msal'
 
 vi.mock('./msal', () => ({
   msalInstance: {
     acquireTokenSilent: vi.fn(),
-    getActiveAccount: vi.fn(),
-    getAllAccounts: vi.fn(() => []),
   },
 }))
 
@@ -25,10 +24,15 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals())
 
-it('refuses to call the API when no account is available', async () => {
-  await expect(callApi()).rejects.toThrow('User not authenticated')
+it('asks the customer to sign in again when Microsoft requires interaction', async () => {
+  vi.mocked(msalInstance.acquireTokenSilent).mockRejectedValueOnce(
+    new InteractionRequiredAuthError('interaction_required', 'Please complete sign-in.'),
+  )
 
-  expect(msalInstance.acquireTokenSilent).not.toHaveBeenCalled()
+  await expect(saveSpending(entries, account)).rejects.toMatchObject({
+    customerMessage: 'Please sign out and sign in again.',
+  })
+
   expect(request).not.toHaveBeenCalled()
 })
 
@@ -38,14 +42,17 @@ it('does not submit spending when token exchange fails', async () => {
     accessToken: 'entra-token',
   } as Awaited<ReturnType<typeof msalInstance.acquireTokenSilent>>)
 
-  await expect(saveSpending(entries, account)).rejects.toThrow('Token exchange failed (401)')
+  await expect(saveSpending(entries, account)).rejects.toMatchObject({
+    message: 'Token exchange failed (401)',
+    customerMessage: 'Please sign out and sign in again.',
+  })
 
   expect(request).toHaveBeenCalledExactlyOnceWith(expect.stringMatching(/\/api\/v1\/auth\/$/),
     expect.objectContaining({ method: 'POST', body: JSON.stringify({ token: 'entra-token' }) }))
 })
 
 it.each([
-  [409, 'Spending already exists for this month.', 'Spending already exists for this month.'],
+  [409, 'Duplicate spending (category ID 1).', 'Save failed (HTTP 409)'],
   [409, { code: 'duplicate' }, 'Save failed (HTTP 409)'],
   [503, 'Unavailable', 'Save failed (HTTP 503)'],
 ])('handles a save error with status %s and detail %j', async (status, detail, message) => {
@@ -56,7 +63,10 @@ it.each([
     .mockResolvedValueOnce(Response.json({ access_token: 'app-token', user: { id: 'customer' } }))
     .mockResolvedValueOnce(Response.json({ detail }, { status }))
 
-  await expect(saveSpending(entries, account)).rejects.toThrow(message)
+  await expect(saveSpending(entries, account)).rejects.toMatchObject({
+    message,
+    ...(status === 409 && { customerMessage: expect.stringContaining('already been saved') }),
+  })
   expect(request).toHaveBeenCalledTimes(2)
 })
 

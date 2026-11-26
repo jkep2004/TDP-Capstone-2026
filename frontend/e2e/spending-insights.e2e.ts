@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 test('saves itemized spending and displays saved and seeded insights', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Sign in with Microsoft' }).click()
-  await expect(page.getByText('API session verified')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Monthly spending' })).toBeVisible()
 
   await page.getByLabel('Spending month').fill('2026-12')
   await page.getByRole('checkbox', { name: 'By subcategory for Food' }).check()
@@ -12,7 +12,7 @@ test('saves itemized spending and displays saved and seeded insights', async ({ 
     await page.getByRole('spinbutton', { name: `${category} (£)` }).fill('0')
   }
   await page.getByRole('button', { name: 'Save spending' }).click()
-  await expect(page.getByText(/Spending saved for 2026-12/)).toBeVisible()
+  await expect(page.getByText('Spending saved for December 2026 (£100.00).')).toBeVisible()
 
   // Reload to prove the result comes from saved data rather than form state.
   await page.reload()

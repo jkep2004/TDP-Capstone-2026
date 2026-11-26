@@ -3,6 +3,8 @@ import type { AccountInfo } from '@azure/msal-browser'
 import { getCategories, saveSpending } from './api'
 import type { Category } from './api'
 import { MAX_SPENDING_AMOUNT_GBP } from './utils/spendingAmount'
+import { customerErrorMessage } from './utils/customerError'
+import { formatMonth } from './utils/formatMonth'
 
 type SpendingFormProps = {
   month: string
@@ -35,7 +37,7 @@ function SpendingForm({ month, account }: SpendingFormProps) {
       }
     }).catch((error: unknown) => {
       if (!controller.signal.aborted) {
-        setCategoryError(error instanceof Error ? error.message : 'Could not load categories.')
+        setCategoryError(customerErrorMessage(error, 'We couldn’t load spending categories. Please try again.'))
       }
     })
     return () => controller.abort()
@@ -99,12 +101,12 @@ function SpendingForm({ month, account }: SpendingFormProps) {
         setConfirmation(null)
         setError('')
         try {
-          const result = await saveSpending(entries.map((entry) => ({
+          await saveSpending(entries.map((entry) => ({
             ...entry, month: `${month}-01`, week: null,
           })), account)
-          setConfirmation({ month, message: `Spending saved for ${month} (${formattedTotal}). IDs: ${result.spendingIds.join(', ')}.` })
+          setConfirmation({ month, message: `Spending saved for ${formatMonth(month)} (${formattedTotal}).` })
         } catch (error) {
-          setError(error instanceof Error ? error.message : 'Could not save spending.')
+          setError(customerErrorMessage(error, 'We couldn’t save your spending. Please try again.'))
         } finally {
           setSaving(false)
         }

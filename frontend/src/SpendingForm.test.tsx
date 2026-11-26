@@ -38,7 +38,7 @@ it('starts with saving disabled and lets the customer retry a failed category re
   expect(screen.getByText('Loading spending categories…')).toBeInTheDocument()
   const save = screen.getByRole('button', { name: 'Save spending' })
   expect(save).toBeDisabled()
-  expect(await screen.findByRole('alert')).toHaveTextContent('Could not load categories (HTTP 503)')
+  expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t load spending categories. Please try again.')
   expect(save).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'Retry loading categories' }))
 
@@ -97,12 +97,12 @@ it('keeps entered amounts after a failed save and allows a retry', async () => {
   await user.type(screen.getByRole('spinbutton', { name: /Utilities/ }), '0')
   await user.click(save)
 
-  expect(await screen.findByRole('alert')).toHaveTextContent('Save failed (HTTP 503)')
+  expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t save your spending. Please try again.')
   expect(food).toHaveValue(0.1)
   expect(save).toBeEnabled()
   await user.click(save)
 
-  expect(await screen.findByText(/Spending saved for 2026-03 \(\u00a30\.30\)/)).toBeInTheDocument()
+  expect(await screen.findByText('Spending saved for March 2026 (£0.30).')).toBeInTheDocument()
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   expect(save).toBeDisabled()
   expect(saveSpending).toHaveBeenCalledTimes(2)

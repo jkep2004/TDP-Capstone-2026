@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { AccountInfo } from '@azure/msal-browser'
 import { getInsights } from './api'
+import { customerErrorMessage } from './utils/customerError'
+import { formatMonth } from './utils/formatMonth'
 import './InsightsPage.css'
 
 type MonthlyInsights = {
@@ -13,10 +15,6 @@ type MonthlyInsights = {
 
 const number = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 2 })
 const money = new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' })
-const monthName = new Intl.DateTimeFormat('en-GB', {
-  month: 'long', year: 'numeric', timeZone: 'UTC',
-})
-const formatMonth = (month: string) => monthName.format(new Date(`${month}-01T00:00:00Z`))
 const formatCarbon = (value: number) => `${number.format(value)} kg CO₂e`
 
 type TrendPoint = Pick<MonthlyInsights, 'month' | 'totalCarbonKg'>
@@ -118,6 +116,7 @@ function LiveInsights({ connection }: { connection: InsightsConnection }) {
   const [month, setMonth] = useState(months.at(-1)?.month ?? '')
   const [details, setDetails] = useState<MonthlyInsights>()
   const [error, setError] = useState<{ month: string; message: string }>()
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     if (!month) return
@@ -129,18 +128,26 @@ function LiveInsights({ connection }: { connection: InsightsConnection }) {
       }
     }).catch((error: unknown) => {
       if (!controller.signal.aborted) {
-        setError({ month, message: error instanceof Error ? error.message : 'Could not load this month.' })
+        setError({ month, message: customerErrorMessage(error, 'We couldn’t load insights for this month. Please try again.') })
       }
     })
     return () => controller.abort()
-  }, [connection, month])
+  }, [connection, month, attempt])
 
   if (!month) return <p>No spending insights yet. Save spending to see a monthly summary.</p>
 
   return (
     <>
       <MonthPicker months={months} month={month} onChange={setMonth} />
-      {error?.month === month ? <p role="alert">{error.message}</p>
+      {error?.month === month ? (
+        <div>
+          <p role="alert">{error.message}</p>
+          <button type="button" onClick={() => {
+            setError(undefined)
+            setAttempt((previous) => previous + 1)
+          }}>Try again</button>
+        </div>
+      )
         : details?.month === month ? <InsightsResults months={months} selected={details} />
         : <p role="status">Loading monthly insights…</p>}
     </>
@@ -157,7 +164,9 @@ export default function InsightsPage({ account }: { account: AccountInfo }) {
     getInsights(account, controller.signal).then((result) => {
       if (!controller.signal.aborted) setConnection(result)
     }).catch((error: unknown) => {
-      if (!controller.signal.aborted) setError(error instanceof Error ? error.message : 'Could not load insights.')
+      if (!controller.signal.aborted) {
+        setError(customerErrorMessage(error, 'We couldn’t load your spending insights. Please try again.'))
+      }
     })
     return () => controller.abort()
   }, [account, attempt])

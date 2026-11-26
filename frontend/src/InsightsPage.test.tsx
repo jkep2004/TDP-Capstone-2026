@@ -27,7 +27,7 @@ it('lets the customer retry when loading trends fails', async () => {
   const user = userEvent.setup()
   render(<InsightsPage account={account} />)
 
-  expect(await screen.findByRole('alert')).toHaveTextContent('Could not load trends (HTTP 503).')
+  expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t load your spending insights. Please try again.')
   await user.click(screen.getByRole('button', { name: 'Retry insights' }))
 
   expect(await screen.findByText(/No spending insights yet/)).toBeInTheDocument()
@@ -35,7 +35,8 @@ it('lets the customer retry when loading trends fails', async () => {
   expect(screen.queryByLabelText('Reporting month')).not.toBeInTheDocument()
 })
 
-it('recovers from a failed monthly request when the customer selects another month', async () => {
+it('lets the customer retry a monthly request and then switch months', async () => {
+  let novemberRequests = 0
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     const { pathname, searchParams } = new URL(url)
     switch (pathname) {
@@ -47,9 +48,13 @@ it('recovers from a failed monthly request when the customer selects another mon
           { month: '2026-11-01', total_carbon_kg: 10 },
         ] })
       case '/api/v1/summary/':
-        return searchParams.get('month') === '2026-11-01'
-          ? new Response(null, { status: 500 })
-          : Response.json({ total_carbon_kg: 0, categories: [] })
+        if (searchParams.get('month') === '2026-11-01') {
+          novemberRequests += 1
+          return novemberRequests === 1
+            ? new Response(null, { status: 500 })
+            : Response.json({ total_carbon_kg: 10, categories: [{ category: 'Food', carbon_kg: 10 }] })
+        }
+        return Response.json({ total_carbon_kg: 0, categories: [] })
       case '/api/v1/recommendations/':
         return Response.json({ recommendations: [] })
       case '/api/v1/savings/':
@@ -61,7 +66,9 @@ it('recovers from a failed monthly request when the customer selects another mon
   const user = userEvent.setup()
   render(<InsightsPage account={account} />)
 
-  expect(await screen.findByRole('alert')).toHaveTextContent('Could not load summary (HTTP 500).')
+  expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t load insights for this month. Please try again.')
+  await user.click(screen.getByRole('button', { name: 'Try again' }))
+  expect(await screen.findByText('Food')).toBeInTheDocument()
   await user.selectOptions(screen.getByLabelText('Reporting month'), '2026-10')
 
   expect(await screen.findByText('No recommendations for this month.')).toBeInTheDocument()

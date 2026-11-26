@@ -11,9 +11,9 @@ import {
 
 import App from './App'
 import { loginRequest } from './authConfig'
-import { callApi, getCategories, getInsights } from './api'
+import { getCategories, getInsights } from './api'
 
-vi.mock('./api', () => ({ callApi: vi.fn(), getCategories: vi.fn(), getInsights: vi.fn() }))
+vi.mock('./api', () => ({ getCategories: vi.fn(), getInsights: vi.fn() }))
 
 vi.mock('@azure/msal-react', () => ({
   useIsAuthenticated: vi.fn(),
@@ -49,8 +49,6 @@ describe('App', () => {
     vi.mocked(getInsights).mockReset()
     vi.mocked(getCategories).mockResolvedValue([])
     vi.mocked(getInsights).mockResolvedValue({ months: [], loadMonth: vi.fn() })
-    vi.mocked(callApi).mockReset()
-    vi.mocked(callApi).mockResolvedValue({})
     loginRedirect.mockReset()
     loginRedirect.mockResolvedValue(undefined)
     logoutRedirect.mockReset()
@@ -96,7 +94,7 @@ describe('App', () => {
     )
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Sign-in unavailable'
+      'We couldn’t start sign-in. Please try again.'
     )
   })
 
@@ -118,12 +116,10 @@ describe('App', () => {
     setAuthenticationState(true)
     const user = userEvent.setup()
     render(<App />)
-    expect(await screen.findByText('API session verified')).toBeInTheDocument()
-    expect(callApi).toHaveBeenCalledWith(testAccount)
-
     expect(
       screen.getByRole('heading', { name: 'Monthly spending' })
     ).toBeInTheDocument()
+    expect(screen.queryByText(/API session/)).not.toBeInTheDocument()
     expect(screen.getByText('learner@example.com')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
