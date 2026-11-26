@@ -7,8 +7,8 @@ const insightsApiUrl = (import.meta.env.VITE_INSIGHTS_API_URL || apiUrl).replace
 
 export type Category = { id: number; name: string; parent_id: number | null };
 
-export async function getCategories(): Promise<Category[]> {
-  const response = await fetch(`${apiUrl}/api/v1/categories/`);
+export async function getCategories(signal?: AbortSignal): Promise<Category[]> {
+  const response = await fetch(`${apiUrl}/api/v1/categories/`, { signal });
   if (!response.ok) {
     throw new Error(`Could not load categories (HTTP ${response.status})`);
   }
@@ -20,6 +20,7 @@ type SpendingEntry = {
   month: string;
   week: number;
   categoryID: number;
+  subcategoryID?: number;
   amount: number;
 };
 

@@ -17,6 +17,58 @@ vi.mock('./msal', () => ({
 
 afterEach(() => vi.unstubAllGlobals())
 
+it('lets the customer retry when loading trends fails', async () => {
+  const request = vi.fn()
+    .mockResolvedValueOnce(Response.json({ access_token: 'app-token' }))
+    .mockResolvedValueOnce(new Response(null, { status: 503 }))
+    .mockResolvedValueOnce(Response.json({ access_token: 'app-token' }))
+    .mockResolvedValueOnce(Response.json({ months: [] }))
+  vi.stubGlobal('fetch', request)
+  const user = userEvent.setup()
+  render(<InsightsPage account={account} />)
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not load trends (HTTP 503).')
+  await user.click(screen.getByRole('button', { name: 'Retry insights' }))
+
+  expect(await screen.findByText(/No spending insights yet/)).toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Reporting month')).not.toBeInTheDocument()
+})
+
+it('recovers from a failed monthly request when the customer selects another month', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+    const { pathname, searchParams } = new URL(url)
+    switch (pathname) {
+      case '/api/v1/auth/':
+        return Response.json({ access_token: 'app-token' })
+      case '/api/v1/trends/':
+        return Response.json({ months: [
+          { month: '2026-10-01', total_carbon_kg: 0 },
+          { month: '2026-11-01', total_carbon_kg: 10 },
+        ] })
+      case '/api/v1/summary/':
+        return searchParams.get('month') === '2026-11-01'
+          ? new Response(null, { status: 500 })
+          : Response.json({ total_carbon_kg: 0, categories: [] })
+      case '/api/v1/recommendations/':
+        return Response.json({ recommendations: [] })
+      case '/api/v1/savings/':
+        return Response.json({ total_savings_gbp: 0, total_carbon_reduction_kg: 0 })
+      default:
+        throw new Error(`Unexpected request: ${url}`)
+    }
+  }))
+  const user = userEvent.setup()
+  render(<InsightsPage account={account} />)
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Could not load summary (HTTP 500).')
+  await user.selectOptions(screen.getByLabelText('Reporting month'), '2026-10')
+
+  expect(await screen.findByText('No recommendations for this month.')).toBeInTheDocument()
+  expect(screen.getByText('No category breakdown for this month.')).toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+})
+
 it('loads authenticated insights and changes the date on all monthly requests', async () => {
   const request = vi.fn(async (url: string) => {
     const { pathname } = new URL(url)

@@ -1,4 +1,5 @@
 import Papa from 'papaparse'
+import { MAX_SPENDING_AMOUNT_GBP } from './spendingAmount'
 
 export type SpendingRow = {
   customer_id: number
@@ -68,14 +69,16 @@ export function parseSpendingCsv(text: string): SpendingRow[] {
       const value = row[column]?.trim() ?? ''
       const number = Number(value)
 
-      if (
-        !/^\d+(\.\d{1,2})?$/.test(value) ||
-        !Number.isFinite(number) ||
-        !Number.isSafeInteger(Math.round(number * 100))
-      ) {
+      if (!/^\d+(\.\d{1,2})?$/.test(value)) {
         throw new Error(
           `Record ${recordNumber}: ${column} must be a non-negative amount ` +
           'with no more than two decimal places.'
+        )
+      }
+
+      if (number > MAX_SPENDING_AMOUNT_GBP) {
+        throw new Error(
+          `Record ${recordNumber}: ${column} must be £${MAX_SPENDING_AMOUNT_GBP.toLocaleString('en-GB')} or less.`
         )
       }
 

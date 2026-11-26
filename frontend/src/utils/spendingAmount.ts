@@ -1,0 +1,1 @@
+export const MAX_SPENDING_AMOUNT_GBP = 100_000
