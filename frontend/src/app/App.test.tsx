@@ -10,10 +10,10 @@ import {
 } from '@azure/msal-browser'
 
 import App from './App'
-import { loginRequest } from './authConfig'
-import { getCategories, getInsights } from './api'
+import { loginRequest } from '../auth/authConfig'
+import { getCategories, getInsights } from '../services/api'
 
-vi.mock('./api', () => ({ getCategories: vi.fn(), getInsights: vi.fn() }))
+vi.mock('../services/api', () => ({ getCategories: vi.fn(), getInsights: vi.fn() }))
 
 vi.mock('@azure/msal-react', () => ({
   useIsAuthenticated: vi.fn(),

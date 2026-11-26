@@ -1,8 +1,8 @@
-import { msalInstance } from "./msal";
-import { loginRequest } from "./authConfig";
+import { msalInstance } from "../auth/msal";
+import { loginRequest } from "../auth/authConfig";
 import type { AccountInfo } from "@azure/msal-browser";
 import { InteractionRequiredAuthError } from "@azure/msal-browser";
-import { CustomerError } from "./utils/customerError";
+import { CustomerError } from "../utils/customerError";
 
 const apiUrl = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const insightsApiUrl = (import.meta.env.VITE_INSIGHTS_API_URL || apiUrl).replace(/\/+$/, "");

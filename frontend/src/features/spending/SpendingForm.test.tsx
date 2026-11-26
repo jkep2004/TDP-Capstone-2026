@@ -1,10 +1,10 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { getCategories, saveSpending } from './api'
+import { getCategories, saveSpending } from '../../services/api'
 import SpendingForm from './SpendingForm'
 
-vi.mock('./api', () => ({
+vi.mock('../../services/api', () => ({
   getCategories: vi.fn(),
   saveSpending: vi.fn(),
 }))

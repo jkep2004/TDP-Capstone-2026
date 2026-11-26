@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { AccountInfo } from '@azure/msal-browser'
-import { getCategories, saveSpending } from './api'
-import type { Category } from './api'
-import { MAX_SPENDING_AMOUNT_GBP } from './utils/spendingAmount'
-import { customerErrorMessage } from './utils/customerError'
-import { formatMonth } from './utils/formatMonth'
+import { getCategories, saveSpending } from '../../services/api'
+import type { Category } from '../../services/api'
+import { customerErrorMessage } from '../../utils/customerError'
+import { formatMonth } from '../../utils/formatMonth'
+import { MAX_SPENDING_AMOUNT_GBP } from './spendingAmount'
 
 type SpendingFormProps = {
   month: string

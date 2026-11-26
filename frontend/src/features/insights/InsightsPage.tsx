@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { AccountInfo } from '@azure/msal-browser'
-import { getInsights } from './api'
-import { customerErrorMessage } from './utils/customerError'
-import { formatMonth } from './utils/formatMonth'
+import { getInsights } from '../../services/api'
+import { customerErrorMessage } from '../../utils/customerError'
+import { formatMonth } from '../../utils/formatMonth'
 import './InsightsPage.css'
 
 type MonthlyInsights = {

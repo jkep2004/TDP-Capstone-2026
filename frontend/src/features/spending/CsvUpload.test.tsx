@@ -6,7 +6,7 @@ import CsvUpload from './CsvUpload'
 
 afterEach(() => vi.unstubAllGlobals())
 
-vi.mock('./msal', () => ({
+vi.mock('../../auth/msal', () => ({
   msalInstance: { acquireTokenSilent: vi.fn().mockResolvedValue({ accessToken: 'entra-token' }) },
 }))
 

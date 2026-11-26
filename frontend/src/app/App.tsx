@@ -4,9 +4,9 @@ import {
   useMsal,
 } from '@azure/msal-react'
 
-import { loginRequest } from './authConfig'
-import SpendingPage from './SpendingPage'
-import InsightsPage from './InsightsPage'
+import { loginRequest } from '../auth/authConfig'
+import SpendingPage from '../features/spending/SpendingPage'
+import InsightsPage from '../features/insights/InsightsPage'
 import './App.css'
 
 function App() {

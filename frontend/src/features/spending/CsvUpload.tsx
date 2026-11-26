@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import type { AccountInfo } from '@azure/msal-browser'
-import { parseSpendingCsv } from './utils/parseSpendingCsv'
-import type { SpendingRow } from './utils/parseSpendingCsv'
-import { calculateSpending, resolveSpendingCategories, saveSpending } from './api'
-import { CustomerError, customerErrorMessage } from './utils/customerError'
-import { formatMonth } from './utils/formatMonth'
+import { calculateSpending, resolveSpendingCategories, saveSpending } from '../../services/api'
+import { CustomerError, customerErrorMessage } from '../../utils/customerError'
+import { formatMonth } from '../../utils/formatMonth'
+import { parseSpendingCsv } from './parseSpendingCsv'
+import type { SpendingRow } from './parseSpendingCsv'
 
 const categories = ['travel', 'food', 'utilities'] as const
 

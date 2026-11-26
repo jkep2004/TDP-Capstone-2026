@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { InteractionRequiredAuthError } from '@azure/msal-browser'
 import { resolveSpendingCategories, saveSpending } from './api'
-import { msalInstance } from './msal'
+import { msalInstance } from '../auth/msal'
 
-vi.mock('./msal', () => ({
+vi.mock('../auth/msal', () => ({
   msalInstance: {
     acquireTokenSilent: vi.fn(),
   },

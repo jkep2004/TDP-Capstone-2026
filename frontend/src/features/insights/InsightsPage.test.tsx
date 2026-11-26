@@ -11,7 +11,7 @@ const account = {
   username: 'learner@example.com',
 }
 
-vi.mock('./msal', () => ({
+vi.mock('../../auth/msal', () => ({
   msalInstance: { acquireTokenSilent: vi.fn().mockResolvedValue({ accessToken: 'entra-token' }) },
 }))
 
