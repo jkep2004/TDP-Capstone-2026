@@ -41,7 +41,12 @@ test('saves itemized spending and displays saved and seeded insights', async ({ 
   await expect(total).toContainText('2,408.48 kg CO₂e')
   const shopping = page.getByRole('region', { name: 'Recommendations' })
     .getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Shopping' }) })
-  await expect(shopping).toContainText('£123.41')
+  const shoppingSavings = shopping.getByText('£123.41')
+  await expect(shoppingSavings).toBeHidden()
+  await shopping.getByRole('button', { name: 'Reveal recommendation for Shopping' }).click()
+  await expect(shoppingSavings).toBeVisible()
+  await shopping.getByRole('button', { name: 'Hide recommendation for Shopping' }).press('Space')
+  await expect(shoppingSavings).toBeHidden()
 
   const enterReplacement = async () => {
     await page.getByRole('button', { name: 'Add spending' }).click()
@@ -71,5 +76,6 @@ test('saves itemized spending and displays saved and seeded insights', async ({ 
   await expect(page.getByRole('heading', { name: 'Spending insights' })).toBeFocused()
   await expect(page.getByRole('heading', { name: 'Monthly spending' }).locator('..')).toContainText('£300.00')
   await month.selectOption('2026-11')
-  await expect(shopping).toContainText('£123.41')
+  await shopping.getByRole('button', { name: 'Reveal recommendation for Shopping' }).click()
+  await expect(shoppingSavings).toBeVisible()
 })

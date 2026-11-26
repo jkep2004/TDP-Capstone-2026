@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import InsightsPage from './InsightsPage'
 
@@ -104,14 +104,27 @@ it('loads authenticated insights and changes the date on all monthly requests', 
   const user = userEvent.setup()
   render(<InsightsPage account={account} />)
 
-  expect(await screen.findByText('Switch one journey to public transport.')).toBeInTheDocument()
+  const reveal = await screen.findByRole('button', { name: 'Reveal recommendation for Travel' })
+  expect(reveal).toHaveAttribute('aria-expanded', 'false')
+  expect(reveal).not.toHaveAccessibleDescription()
+  reveal.focus()
+  await user.keyboard('{Enter}')
+  const hide = screen.getByRole('button', { name: 'Hide recommendation for Travel' })
+  expect(hide).toBe(reveal)
+  expect(hide).toHaveFocus()
+  expect(hide).toHaveAttribute('aria-expanded', 'true')
+  expect(hide).toHaveAccessibleDescription(/Switch one journey to public transport\./)
+  expect(within(screen.getByRole('region', { name: 'Recommendations' })).getByText('£59.66')).toBeInTheDocument()
+  await user.click(hide)
+  expect(reveal).toHaveAttribute('aria-expanded', 'false')
+  expect(reveal).not.toHaveAccessibleDescription()
+  await user.click(reveal)
   expect(screen.getByText('There’s no spending from the previous month to compare.')).toBeInTheDocument()
   expect(screen.getByRole('region', { name: 'Monthly spending' })).toHaveTextContent('£426.11')
   expect(screen.getByRole('heading', { name: '2 months of spending added' })).toBeInTheDocument()
   expect(screen.getByRole('progressbar', { name: /Recorded months/ })).toHaveAttribute('value', '2')
-  expect(screen.getAllByText('£59.66')).toHaveLength(2)
   await user.selectOptions(screen.getByLabelText('Reporting month'), '2026-09')
-  expect(await screen.findByText('Switch one journey to public transport.')).toBeInTheDocument()
+  expect(await screen.findByRole('button', { name: 'Reveal recommendation for Travel' })).toHaveAttribute('aria-expanded', 'false')
 
   const protectedCalls = vi.mocked(fetch).mock.calls.slice(1)
   expect(protectedCalls).toHaveLength(7)
@@ -131,7 +144,7 @@ it('loads authenticated insights and changes the date on all monthly requests', 
   expect(screen.getByLabelText('Reporting month')).toHaveValue('2026-11')
   expect(november).toHaveFocus()
   expect(november).toHaveAttribute('aria-pressed', 'true')
-  expect(await screen.findByText('Switch one journey to public transport.')).toBeInTheDocument()
+  expect(await screen.findByRole('button', { name: 'Reveal recommendation for Travel' })).toHaveAttribute('aria-expanded', 'false')
   const requested = request.mock.calls.length
   await user.click(screen.getByRole('button', { name: /^Spend$/ }))
   expect(screen.getByRole('region', { name: 'Spending over time' })).toBeInTheDocument()

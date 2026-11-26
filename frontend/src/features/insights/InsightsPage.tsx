@@ -11,6 +11,7 @@ import InsightsHistory from './InsightsHistory'
 import type { TrendPoint } from './InsightsHistory'
 import MonthlyRecap from './MonthlyRecap'
 import OverviewWelcome from './OverviewWelcome'
+import RecommendationCard from './RecommendationCard'
 import SpendingMilestones from './SpendingMilestones'
 import type { MonthlyInsights } from './types'
 import './InsightsPage.css'
@@ -113,19 +114,9 @@ function InsightsResults({ months, month, selected, change, onSelect, status }: 
       {selected && <section className="insights-card recommendations-panel" aria-labelledby="insights-recommendations">
         <h2 id="insights-recommendations">Recommendations</h2>
         {recommendations.length === 0 ? <p className="quiet-state">No recommendations for this month.</p> : (
-          <ul className="insights-recommendations">
+          <ul className="insights-recommendations" key={selected.month}>
             {recommendations.map((item) => (
-              <li key={item.category}>
-                <CategoryIcon name={item.category} />
-                <div className="recommendation-action">
-                  <h3>{item.category}</h3>
-                  <p>{item.advice}</p>
-                </div>
-                <dl>
-                  <div><dt>Estimated money saved</dt><dd className="recommendation-money data-value">{formatMoney(item.savingsGbp)}</dd></div>
-                  <div><dt>Estimated carbon saved</dt><dd className="data-value">{formatCarbon(item.savingsKg)}</dd></div>
-                </dl>
-              </li>
+              <RecommendationCard key={item.category} {...item} />
             ))}
           </ul>
         )}
