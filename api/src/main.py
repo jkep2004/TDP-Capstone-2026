@@ -108,10 +108,10 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:8000",
-        # "https://frontend-domain.com" # TODO: Replace with frontend domain in production (And add to AZURE Entra app registration)
-        # "https://backend-domain.com" # TODO: Replace with backend domain in production (And add to AZURE Entra app registration)
+        "http://localhost:5173", # Frontend dev server
+        "http://localhost:8000", # Backend dev server
+        "https://ca-tdp2026-carbon-team3-web-dev.blackground-28a725c3.uksouth.azurecontainerapps.io/" # TODO: Add to AZURE Entra app registration
+        "https://ca-tdp2026-carbon-team3-api-dev.blackground-28a725c3.uksouth.azurecontainerapps.io" # TODO: Add to AZURE Entra app registration
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -119,7 +119,6 @@ app.add_middleware(
 )
 logger.info("CORS middleware configured with allowed origins")
 app.add_middleware(RequestLoggingMiddleware)
-
 
 app.mount(
     "/static",
