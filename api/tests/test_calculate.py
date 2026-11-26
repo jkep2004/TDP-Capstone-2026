@@ -11,6 +11,9 @@ from src.main import app
 from src.schemas.Category import Category
 from database.database import get_db
 
+from src.schemas.CalculateRequest import CalculateRequest
+from pydantic import ValidationError
+
 # Test data
 
 CUSTOMER_ID = str(uuid.uuid4())
@@ -499,3 +502,92 @@ def test_calculate_with_invalid_subcategory_type(client):
     response = client.post("/api/v1/calculate/", json=payload)
 
     assert response.status_code == 422
+
+
+# CalculateRequest validation: duplicates, month and customer consistency
+#
+# `match=` is a regex searched against the WHOLE error string, and Pydantic
+# includes a dump of the input in that string (with keys like 'customerID'
+# and 'month'). So each expected message is a phrase that only appears in the
+# validator's own text, never in the input data. A single word such as
+# "customer" would match the input dump and give a false pass.
+
+DIFFERENT_CUSTOMER_ID = str(uuid.uuid4())
+DIFFERENT_MONTH = "2026-12-01"
+
+
+@pytest.mark.parametrize(
+    "spending, expected_message",
+    [
+        (
+            [
+                make_spending_item(categoryID=1, subcategoryID=3, week=1),
+                make_spending_item(categoryID=1, subcategoryID=3, week=1),
+            ],
+            "Duplicate Spending Item",
+        ),
+        (
+            [
+                make_spending_item(categoryID=5, subcategoryID=None, week=3),
+                make_spending_item(categoryID=5, subcategoryID=None, week=3),
+            ],
+            "Duplicate Spending Item",
+        ),
+        (
+            [
+                make_spending_item(categoryID=5, week=2, customerID=DIFFERENT_CUSTOMER_ID),
+                make_spending_item(categoryID=5, week=3),
+            ],
+            "customer IDs aren't the same",
+        ),
+        (
+            [
+                make_spending_item(categoryID=5, week=2, month=DIFFERENT_MONTH),
+                make_spending_item(categoryID=5, week=3),
+            ],
+            "month must be the same",
+        ),
+    ],
+    ids=["duplicate", "duplicate_without_subcategory", "mixed_customer", "mixed_month"],
+)
+def test_calculate_request_rejects_invalid_spending(spending, expected_message):
+    with pytest.raises(ValidationError, match=expected_message):
+        CalculateRequest(spending=spending)
+
+
+@pytest.mark.parametrize(
+    "spending",
+    [
+        [
+            make_spending_item(categoryID=3, subcategoryID=None, week=1),
+            make_spending_item(categoryID=3, subcategoryID=None, week=2),
+        ],
+        [
+            make_spending_item(categoryID=1, subcategoryID=2, week=1),
+            make_spending_item(categoryID=1, subcategoryID=3, week=1),
+        ],
+        [
+            make_spending_item(categoryID=3, subcategoryID=None, week=1),
+            make_spending_item(categoryID=1, subcategoryID=2, week=1),
+        ],
+    ],
+    ids=["different_week", "different_subcategory", "different_category_same_week"],
+)
+def test_calculate_request_accepts_valid_spending(spending):
+    request = CalculateRequest(spending=spending)
+
+    assert len(request.spending) == len(spending)
+
+
+def test_calculate_duplicate_items_returns_422(client):
+    payload = {
+        "spending": [
+            make_spending_item(categoryID=3, subcategoryID=None, week=1),
+            make_spending_item(categoryID=3, subcategoryID=None, week=1),
+        ]
+    }
+
+    response = client.post("/api/v1/calculate/", json=payload)
+
+    assert response.status_code == 422
+    assert "Duplicate Spending Item" in response.json()["detail"][0]["msg"]
