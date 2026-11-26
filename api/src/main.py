@@ -111,7 +111,7 @@ app.add_middleware(
         "http://localhost:5173", # Frontend dev server
         "http://localhost:8000", # Backend dev server
         "https://ca-tdp2026-carbon-team3-web-dev.blackground-28a725c3.uksouth.azurecontainerapps.io/" # TODO: Add to AZURE Entra app registration
-        # "https://backend-domain.com" # TODO: Add to AZURE Entra app registration
+        "https://ca-tdp2026-carbon-team3-api-dev.blackground-28a725c3.uksouth.azurecontainerapps.io" # TODO: Add to AZURE Entra app registration
     ],
     allow_credentials=True,
     allow_methods=["*"],
