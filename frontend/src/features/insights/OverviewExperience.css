@@ -1,0 +1,149 @@
+.overview-welcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1.42fr) minmax(0, 1fr);
+  gap: var(--space-3);
+  animation: appear var(--reveal) var(--ease) both;
+}
+
+.welcome-intro {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 1.15rem;
+  min-height: 340px;
+  padding: clamp(1.4rem, 4.5vw, 3.35rem);
+  border-radius: var(--radius-panel);
+  color: #f5f9ec;
+  background: var(--forest);
+}
+
+.welcome-mark, .welcome-step-icon, .milestone-icon, .recap-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  border-radius: 11px;
+}
+
+.welcome-mark { width: 48px; height: 48px; color: var(--forest); background: var(--lime); }
+.welcome-intro h2 { color: #f5f9ec; font-size: clamp(2.2rem, 4.4vw, 3.85rem); letter-spacing: -.05em; }
+.welcome-intro p { max-width: 38ch; color: #e0ecdb; }
+.welcome-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem .75rem; }
+.welcome-actions button:first-child { color: var(--forest-deep); background: var(--lime); }
+.welcome-actions button:first-child:hover { color: var(--forest-deep); background: #e8f5cc; }
+.welcome-skip { color: #f5f9ec; background: transparent; }
+.welcome-skip:hover:not(:disabled) { color: #f5f9ec; background: #ffffff1a; }
+.welcome-intro :focus-visible { outline-color: var(--lime); }
+
+.welcome-steps {
+  display: grid;
+  align-content: center;
+  gap: 1.2rem;
+  margin: 0;
+  padding: clamp(1.15rem, 3.5vw, 2.2rem);
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.welcome-steps li { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: .8rem; }
+.welcome-step-icon, .milestone-icon { width: 43px; height: 43px; color: var(--forest); background: var(--sage); }
+.welcome-steps p, .spending-milestones p { margin-top: .28rem; color: var(--muted); font-size: .92rem; }
+
+.overview-actions {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .75rem 1rem;
+  margin: 1.25rem 0;
+}
+
+.overview-actions .insights-period { margin: 0; }
+.recap-trigger { color: var(--forest); background: var(--lime); border-color: #c4dda0; }
+.recap-trigger:hover:not(:disabled) { color: var(--forest-deep); background: #e5f4c6; }
+
+.spending-milestones {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(220px, 34%);
+  align-items: center;
+  gap: .9rem;
+  margin-bottom: 1.15rem;
+  padding: .9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+
+.spending-milestones h2 { font-size: 1.05rem; }
+.milestone-scale { display: grid; gap: .3rem; min-width: 0; }
+.milestone-scale progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  appearance: none;
+  border: 0;
+  border-radius: 6px;
+  background: var(--surface-alt);
+  accent-color: var(--emerald);
+}
+.milestone-scale progress::-webkit-progress-bar { border-radius: 6px; background: var(--surface-alt); }
+.milestone-scale progress::-webkit-progress-value { border-radius: 6px; background: var(--emerald); }
+.milestone-scale progress::-moz-progress-bar { border-radius: 6px; background: var(--emerald); }
+.milestone-scale ul { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; padding: 0; list-style: none; }
+.milestone-scale li { display: flex; align-items: center; justify-content: flex-end; gap: .2rem; color: var(--muted); font-size: .72rem; white-space: nowrap; }
+.milestone-scale li:last-child { grid-column: 4; }
+.milestone-scale li[data-reached='true'] { color: var(--emerald); font-weight: var(--weight-strong); }
+
+.monthly-recap {
+  width: min(100% - 2rem, 40rem);
+  max-height: calc(100% - 2rem);
+  padding: 0;
+  border: 1px solid #48675a;
+  border-radius: 1.05rem;
+  color: #f5f9ec;
+  background: var(--forest-deep);
+  overscroll-behavior: contain;
+}
+
+.monthly-recap[open] { animation: appear var(--reveal) var(--ease) both; }
+.monthly-recap::backdrop { background: #0a1d17c4; }
+body:has(.monthly-recap[open]) { overflow: hidden; }
+.monthly-recap :focus-visible { outline-color: var(--lime); }
+.recap-frame { display: grid; gap: var(--space-3); padding: clamp(1rem, 3.5vw, 2rem); }
+.recap-header, .recap-controls { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+.recap-header p { color: #e0ecdb; font-weight: var(--weight-strong); }
+.recap-close, .recap-back { color: #f5f9ec; background: transparent; }
+.recap-close { width: 44px; padding: 0; }
+.recap-close:hover:not(:disabled), .recap-back:hover:not(:disabled) { color: #f5f9ec; background: #ffffff20; }
+.recap-progress { display: flex; gap: .4rem; }
+.recap-progress span { flex: 1; height: 4px; border-radius: 3px; background: #536b60; }
+.recap-progress span[data-complete='true'] { background: var(--lime); }
+.recap-slide {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: .95rem;
+  min-height: 300px;
+  padding: clamp(.35rem, 2vw, 1rem);
+  animation: appear-side var(--reveal) var(--ease) both;
+}
+.recap-mark { width: 53px; height: 53px; color: var(--lime); background: #28473a; }
+.recap-slide h2 { color: #f5f9ec; font-size: clamp(1.45rem, 3.2vw, 2rem); }
+.recap-value { max-width: 100%; color: var(--lime); font-size: clamp(2rem, 7vw, 3.65rem); font-weight: var(--weight-medium); letter-spacing: -.055em; line-height: 1.03; overflow-wrap: anywhere; }
+.recap-slide p:last-child, .recap-controls > span { color: #dbe8d9; }
+.recap-controls { padding-top: .7rem; border-top: 1px solid #48675a; }
+.recap-controls > span { font-size: .85rem; white-space: nowrap; }
+.recap-next, .recap-next:hover:not(:disabled) { color: var(--forest-deep); background: var(--lime); }
+
+@media (max-width: 700px) {
+  .overview-welcome { grid-template-columns: 1fr; }
+  .welcome-intro { min-height: 280px; }
+  .spending-milestones { grid-template-columns: auto minmax(0, 1fr); }
+  .milestone-scale { grid-column: 1 / -1; }
+}
+
+@media (max-width: 450px) {
+  .recap-trigger { width: 100%; }
+  .recap-slide { min-height: 255px; }
+}

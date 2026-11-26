@@ -84,8 +84,8 @@ it('loads authenticated insights and changes the date on all monthly requests', 
         return Response.json({ access_token: 'app-token' })
       case '/api/v1/trends/':
         return Response.json({ months: [
-          { month: '2026-09-01', total_carbon_kg: 100 },
-          { month: '2026-11-01', total_carbon_kg: 1182.33 },
+          { month: '2026-09-01', total_carbon_kg: 100, total_spend_gbp: 95 },
+          { month: '2026-11-01', total_carbon_kg: 1182.33, total_spend_gbp: 426.11 },
         ] })
       case '/api/v1/summary/':
         return Response.json({ total_spend_gbp: 426.11, total_carbon_kg: 1182.33, categories: [{ category: 'Travel', carbon_kg: 1182.33, monthly_spend_gbp: 426.11 }] })
@@ -107,12 +107,15 @@ it('loads authenticated insights and changes the date on all monthly requests', 
   expect(await screen.findByText('Switch one journey to public transport.')).toBeInTheDocument()
   expect(screen.getByText('There’s no spending from the previous month to compare.')).toBeInTheDocument()
   expect(screen.getByRole('region', { name: 'Monthly spending' })).toHaveTextContent('£426.11')
+  expect(screen.getByRole('heading', { name: '2 months of spending added' })).toBeInTheDocument()
+  expect(screen.getByRole('progressbar', { name: /Recorded months/ })).toHaveAttribute('value', '2')
   expect(screen.getAllByText('£59.66')).toHaveLength(2)
   await user.selectOptions(screen.getByLabelText('Reporting month'), '2026-09')
   expect(await screen.findByText('Switch one journey to public transport.')).toBeInTheDocument()
 
   const protectedCalls = vi.mocked(fetch).mock.calls.slice(1)
   expect(protectedCalls).toHaveLength(7)
+  expect(new URL(String(protectedCalls[0][0])).searchParams.get('months')).toBe('12')
   for (const [, options] of protectedCalls) {
     expect(options?.headers).toEqual({ Authorization: 'Bearer app-token' })
   }
@@ -121,4 +124,18 @@ it('loads authenticated insights and changes the date on all monthly requests', 
     expect(urls.filter((url) => url.searchParams.get('month') === month).map((url) => url.pathname))
       .toEqual(['/api/v1/summary/', '/api/v1/recommendations/', '/api/v1/savings/'])
   }
+
+  const november = screen.getByRole('button', { name: /Nov 2026, 1,182\.33/ })
+  november.focus()
+  await user.keyboard('{Enter}')
+  expect(screen.getByLabelText('Reporting month')).toHaveValue('2026-11')
+  expect(november).toHaveFocus()
+  expect(november).toHaveAttribute('aria-pressed', 'true')
+  expect(await screen.findByText('Switch one journey to public transport.')).toBeInTheDocument()
+  const requested = request.mock.calls.length
+  await user.click(screen.getByRole('button', { name: /^Spend$/ }))
+  expect(screen.getByRole('region', { name: 'Spending over time' })).toBeInTheDocument()
+  expect(november).toHaveAccessibleName('Nov 2026, £426.11')
+  expect(november).toHaveAttribute('aria-pressed', 'true')
+  expect(request).toHaveBeenCalledTimes(requested)
 })

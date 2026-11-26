@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import CsvUpload from './CsvUpload'
@@ -25,6 +25,21 @@ function createCsvFile(contents: string) {
 }
 
 describe('CsvUpload', () => {
+  it('previews a spending file dropped onto the upload area', async () => {
+    const user = userEvent.setup()
+    render(<CsvUpload month="2026-10" />)
+    const dropZone = screen.getByRole('group', { name: 'Upload a spending file' })
+    const dataTransfer = { types: ['Files'], files: [createCsvFile('Week,Travel,Food,Utilities\n1,1,2,3')] }
+
+    fireEvent.dragEnter(dropZone, { dataTransfer })
+    expect(dropZone).toHaveAttribute('data-dragging', 'true')
+    fireEvent.drop(dropZone, { dataTransfer })
+    expect(dropZone).toHaveAttribute('data-dragging', 'false')
+    await user.click(screen.getByRole('button', { name: 'Preview spending' }))
+
+    expect(await screen.findByText('£6.00')).toBeInTheDocument()
+  })
+
   it('rejects a week outside the selected month before requesting a calculation', async () => {
     const request = vi.fn()
     vi.stubGlobal('fetch', request)

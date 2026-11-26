@@ -4,28 +4,54 @@ import {
   useMsal,
 } from '@azure/msal-react'
 import type { AccountInfo } from '@azure/msal-browser'
+import { ArrowRight, ChartNoAxesCombined, Leaf, LogOut, Wallet } from 'lucide-react'
 
 import { loginRequest } from '../auth/authConfig'
+import woodland from '../assets/woodland-river.webp'
+import woodlandSmall from '../assets/woodland-river-small.webp'
 import SpendingPage from '../features/spending/SpendingPage'
 import InsightsPage from '../features/insights/InsightsPage'
 import './App.css'
 
+function Brand() {
+  return (
+    <div className="brand">
+      <span className="brand-mark"><Leaf size={21} strokeWidth={1.8} aria-hidden="true" /></span>
+      <span>Carbon &amp; Savings <span className="brand-qualifier">Advisor</span></span>
+    </div>
+  )
+}
+
 function CustomerArea({ account, signOut }: { account: AccountInfo; signOut: () => Promise<void> }) {
-  const [section, setSection] = useState<'spending' | 'insights'>('spending')
+  const [section, setSection] = useState<'spending' | 'insights'>('insights')
+  const [hasOpenedSpending, setHasOpenedSpending] = useState(false)
+  const [introDismissed, setIntroDismissed] = useState(false)
   const [savedMonth, setSavedMonth] = useState<string>()
   const [signOutError, setSignOutError] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
 
   const openSpending = () => {
     setSavedMonth(undefined)
+    setHasOpenedSpending(true)
     setSection('spending')
+    requestAnimationFrame(() => document.getElementById('spending-content')?.focus())
   }
 
   return (
     <>
-      <header className="account-bar">
-        <span className="product-name">Carbon &amp; Savings Advisor</span>
-        <button type="button" disabled={isSigningOut} onClick={async () => {
+      <a className="skip-link" href={section === 'spending' ? '#spending-content' : '#insights-content'}>Skip to content</a>
+      <header className="account-header">
+        <div className="account-bar">
+          <Brand />
+          <nav className="account-nav" aria-label="Account sections">
+            <button type="button" aria-pressed={section === 'insights'} onClick={() => setSection('insights')}>
+              <ChartNoAxesCombined size={17} aria-hidden="true" /> Overview
+            </button>
+            <button type="button" aria-pressed={section === 'spending'} onClick={openSpending}>
+              <Wallet size={17} aria-hidden="true" /> Add spending
+            </button>
+          </nav>
+          <button className="sign-out-button" type="button" disabled={isSigningOut} onClick={async () => {
           setSignOutError(false)
           setIsSigningOut(true)
           try {
@@ -35,20 +61,22 @@ function CustomerArea({ account, signOut }: { account: AccountInfo; signOut: () 
           } finally {
             setIsSigningOut(false)
           }
-        }}>{isSigningOut ? 'Signing out…' : 'Sign out'}</button>
+          }}><LogOut size={17} aria-hidden="true" /> {isSigningOut ? 'Signing out…' : 'Sign out'}</button>
+        </div>
       </header>
       {signOutError && <p className="account-error" role="alert">We couldn’t sign you out. Please try again.</p>}
-      <nav className="insights-nav" aria-label="Account sections">
-        <button className="mode-button" type="button" aria-pressed={section === 'spending'} onClick={openSpending}>Spending</button>
-        <button className="mode-button" type="button" aria-pressed={section === 'insights'} onClick={() => setSection('insights')}>Insights</button>
-      </nav>
-      <div hidden={section !== 'spending'}>
+      {hasOpenedSpending && <div className="page-spending" hidden={section !== 'spending'}>
         <SpendingPage account={account} onSaved={(month) => {
           setSavedMonth(month)
           setSection('insights')
         }} />
-      </div>
-      {section === 'insights' && <InsightsPage key={savedMonth ?? 'insights'} account={account} savedMonth={savedMonth} onAddSpending={openSpending} />}
+      </div>}
+      {section === 'insights' && (
+        <div className="page-insights">
+          <InsightsPage key={savedMonth ?? 'insights'} account={account} savedMonth={savedMonth} onAddSpending={openSpending}
+            introDismissed={introDismissed} onDismissIntro={() => setIntroDismissed(true)} />
+        </div>
+      )}
     </>
   )
 }
@@ -75,19 +103,22 @@ function App() {
   if (!isAuthenticated || !account) {
     return (
       <main className="auth-page">
-        <p className="auth-eyebrow">Carbon &amp; Savings Advisor</p>
-
-        <section className="auth-card" aria-labelledby="auth-heading">
+        <section className="auth-editorial" aria-labelledby="auth-heading">
+          <picture className="auth-photo">
+            <source media="(max-width: 720px)" srcSet={woodlandSmall} />
+            <img src={woodland} width="1024" height="1536" alt="" fetchPriority="high" />
+          </picture>
+          <Brand />
           <div className="auth-intro">
-            <span className="auth-mark" aria-hidden="true">£</span>
             <h1 id="auth-heading">Understand your spending</h1>
             <p>
               See the estimated carbon impact of your monthly spending and find ways to save.
             </p>
           </div>
-
-          <div className="auth-action">
-            <h2>Welcome</h2>
+        </section>
+        <section className="auth-action" aria-labelledby="sign-in-heading">
+          <div>
+            <h2 id="sign-in-heading">Sign in to your account</h2>
             <p>Sign in with your Microsoft account to continue.</p>
             <button
               className="sign-in-button"
@@ -96,13 +127,13 @@ function App() {
               disabled={isSigningIn}
             >
               {isSigningIn ? 'Connecting to Microsoft…' : 'Sign in with Microsoft'}
+              {!isSigningIn && <ArrowRight size={19} aria-hidden="true" />}
             </button>
             {loginError && (
               <p className="auth-error" role="alert">{loginError}</p>
             )}
           </div>
         </section>
-
       </main>
     )
   }

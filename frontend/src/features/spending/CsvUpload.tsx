@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { AccountInfo } from '@azure/msal-browser'
+import { ArrowRight, CloudUpload, Download, FileCheck, Leaf } from 'lucide-react'
 import { calculateSpending, resolveSpendingCategories, saveSpending } from '../../services/api'
 import { CustomerError, customerErrorMessage } from '../../utils/customerError'
 import { formatCarbon, formatMoney } from '../../utils/formatAmounts'
@@ -20,6 +21,7 @@ type CsvUploadProps = {
 
 function CsvUpload({ month, customerId, account, onSaved, onSavingChange }: CsvUploadProps) {
   const requestPending = useRef(false)
+  const dragDepth = useRef(0)
   const [file, setFile] = useState<File | null>(null)
   const [fileRows, setFileRows] = useState<SpendingRow[]>([])
   const [selectedGroup, setSelectedGroup] = useState(0)
@@ -35,12 +37,26 @@ function CsvUpload({ month, customerId, account, onSaved, onSavingChange }: CsvU
   const [calculationError, setCalculationError] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
   const [saved, setSaved] = useState<{ month: string; count: number }>()
   const busy = isReading || isCalculating || saving
 
   const clearCalculation = () => {
     setCalculation(undefined)
     setCalculationError('')
+  }
+
+  const selectFile = (selected: File | null) => {
+    if (selected && !/\.csv$/i.test(selected.name) && selected.type !== 'text/csv') {
+      setError('Choose a CSV file to add your spending.')
+      return
+    }
+    setFile(selected)
+    setFileRows([])
+    setSaved(undefined)
+    setSaveError('')
+    setError('')
+    clearCalculation()
   }
 
   const buildEntries = async () => {
@@ -141,44 +157,59 @@ function CsvUpload({ month, customerId, account, onSaved, onSavingChange }: CsvU
   const formatPence = (pence: number) => formatMoney(pence / 100)
 
   return (
-    <div>
-      <a className="template-link" href={`${import.meta.env.BASE_URL}spending-template.csv`} download>Download a spending template</a>
-
-      <div className="field">
+    <div className="csv-entry">
+      <div className="upload-zone" role="group" aria-label="Upload a spending file" data-dragging={isDragging} data-selected={Boolean(file)}
+        onDragEnter={(event) => {
+          if (busy || !event.dataTransfer.types.includes('Files')) return
+          dragDepth.current += 1
+          setIsDragging(true)
+        }}
+        onDragLeave={() => {
+          dragDepth.current = Math.max(0, dragDepth.current - 1)
+          if (dragDepth.current === 0) setIsDragging(false)
+        }}
+        onDragOver={(event) => {
+          event.preventDefault()
+          event.dataTransfer.dropEffect = busy ? 'none' : 'copy'
+        }}
+        onDrop={(event) => {
+          event.preventDefault()
+          dragDepth.current = 0
+          setIsDragging(false)
+          if (busy || !event.dataTransfer.files.length) return
+          if (event.dataTransfer.files.length > 1) {
+            setError('Choose one spending file at a time.')
+            return
+          }
+          selectFile(event.dataTransfer.files[0])
+        }}>
+        <span className="upload-icon" aria-hidden="true">{file ? <FileCheck size={27} /> : <CloudUpload size={27} />}</span>
+        {!file && <p>Drop your spending file here</p>}
+        {file && rows.length === 0 && !error && <p role="status">File selected.</p>}
         <input
           id="spending-csv"
           className="visually-hidden"
           type="file"
           accept=".csv"
           disabled={busy}
-          onChange={(event) => {
-            const selectedFile = event.target.files?.[0] ?? null
-
-            setFile(selectedFile)
-            setFileRows([])
-            setSaved(undefined)
-            setSaveError('')
-            setError('')
-            clearCalculation()
-          }}
+          onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
         />
         <label className="file-picker" htmlFor="spending-csv">{file ? 'Choose another CSV file' : 'Choose a CSV file'}</label>
       </div>
 
-      {file && rows.length === 0 && !error && <p role="status">File selected.</p>}
-
-      <button
-        type="button"
-        onClick={readFile}
-        disabled={!file || busy}
-      >
-        {isReading ? 'Reading file…' : 'Preview spending'}
-      </button>
+      <div className="upload-actions">
+        <a className="template-link" href={`${import.meta.env.BASE_URL}spending-template.csv`} download>
+          <Download size={17} aria-hidden="true" /> Download a spending template
+        </a>
+        <button type="button" className="button-secondary" onClick={readFile} disabled={!file || busy}>
+          {isReading ? 'Reading file…' : 'Preview spending'}
+        </button>
+      </div>
 
       {error && <p className="feedback-error" role="alert">{error}</p>}
 
       {rows.length > 0 && (
-        <section aria-labelledby="csv-preview-heading">
+        <section className="csv-result" aria-labelledby="csv-preview-heading">
           <h3 id="csv-preview-heading">Spending preview</h3>
 
           {customers.length > 1 && (
@@ -239,9 +270,9 @@ function CsvUpload({ month, customerId, account, onSaved, onSavingChange }: CsvU
             </table>
           </div>
 
-          <div className="total">
+          <div className="total csv-total">
             <span>Total recorded spending</span>
-            <strong>
+            <strong className="data-value">
               {formatPence(
                 totals.travel + totals.food + totals.utilities
               )}
@@ -251,18 +282,21 @@ function CsvUpload({ month, customerId, account, onSaved, onSavingChange }: CsvU
           <p className="help-text">
             These totals cover the weeks shown. Check they belong to {month ? selectedMonth : 'the month you select'} before saving.
           </p>
+          <div className="csv-result-actions">
           <button className="save-button" type="button" onClick={save} aria-busy={saving} disabled={busy || !month || !account || saved?.month === month}>
             {saving && <span className="button-spinner" aria-hidden="true" />}
             {saving ? 'Saving your spending…' : 'Save spending'}
+            {!saving && <ArrowRight size={18} aria-hidden="true" />}
           </button>
+          <button className="button-secondary" type="button" onClick={calculate} disabled={busy || !month || !customerId}>
+            <Leaf size={18} aria-hidden="true" /> {isCalculating ? 'Preparing your estimate…' : 'Estimate carbon impact'}
+          </button>
+          </div>
           {saving && <span className="visually-hidden" role="status">Saving your spending.</span>}
           {saveError && <p className="feedback-error" role="alert">{saveError}</p>}
           {!onSaved && saved?.month === month && (
             <p role="status">Saved {saved.count} {saved.count === 1 ? 'entry' : 'entries'} for {selectedMonth}.</p>
           )}
-          <button className="mode-button csv-estimate-button" type="button" onClick={calculate} disabled={busy || !month || !customerId}>
-            {isCalculating ? 'Preparing your estimate…' : 'Estimate carbon impact'}
-          </button>
           {calculationError && <p className="feedback-error" role="alert">{calculationError}</p>}
           {calculation && (
             <div className="csv-estimate" role="status">

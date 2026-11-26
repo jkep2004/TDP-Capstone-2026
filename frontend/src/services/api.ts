@@ -95,9 +95,13 @@ export async function getInsights(account: AccountInfo, signal: AbortSignal) {
     return response.json();
   }
 
-  const trends = await get<{ months: { month: string; total_carbon_kg: number }[] }>("trends/", signal);
+  const trends = await get<{ months: { month: string; total_carbon_kg: number | null; total_spend_gbp: number | null }[] }>("trends/?months=12", signal);
   return {
-    months: trends.months.map((point) => ({ month: point.month.slice(0, 7), totalCarbonKg: point.total_carbon_kg })),
+    months: trends.months.map((point) => ({
+      month: point.month.slice(0, 7),
+      totalCarbonKg: point.total_carbon_kg ?? null,
+      totalSpendGbp: point.total_spend_gbp ?? null,
+    })),
     async loadMonth(month: string, monthSignal: AbortSignal) {
       const query = `?month=${month}-01`;
       const [summary, recommendations, savings] = await Promise.all([

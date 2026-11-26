@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { AccountInfo } from '@azure/msal-browser'
+import { CalendarDays, FileUp, PencilLine } from 'lucide-react'
 
 import './SpendingPage.css'
 import CsvUpload from './CsvUpload'
@@ -11,8 +12,8 @@ function SpendingPage({ account, onSaved }: { account?: AccountInfo; onSaved?: (
   const [saving, setSaving] = useState(false)
 
   return (
-    <main className="spending-page">
-      <header>
+    <main id="spending-content" className="spending-page entry-page" tabIndex={-1}>
+      <header className="page-heading">
         <h1>Monthly spending</h1>
         <p className="intro">
           Add a month of spending to see your estimated carbon footprint and potential savings.
@@ -28,7 +29,7 @@ function SpendingPage({ account, onSaved }: { account?: AccountInfo; onSaved?: (
             aria-pressed={mode === 'manual'}
             onClick={() => setMode('manual')}
           >
-            Manual entry
+            <PencilLine size={17} aria-hidden="true" /> Manual entry
           </button>
           <button
             type="button"
@@ -37,22 +38,22 @@ function SpendingPage({ account, onSaved }: { account?: AccountInfo; onSaved?: (
             aria-pressed={mode === 'csv'}
             onClick={() => setMode('csv')}
           >
-            Upload CSV
+            <FileUp size={17} aria-hidden="true" /> Upload CSV
           </button>
         </div>
 
-        <h2 id="form-heading">
-          {mode === 'manual' ? 'Enter spending manually' : 'Upload a CSV file'}
-        </h2>
-        <p id="spending-help" className="help-text">
-          {mode === 'manual'
-            ? 'Enter £0 for categories you didn’t spend in. If you break down a category, you can leave unused amounts blank.'
-            : 'Choose the month the spending in your file belongs to.'}
-        </p>
-
-        <div className="field">
-          <label htmlFor="month">Spending month</label>
-          <input
+        <div className="entry-heading">
+          <div>
+            <h2 id="form-heading">{mode === 'manual' ? 'Enter spending manually' : 'Upload a CSV file'}</h2>
+            <p id="spending-help" className="help-text">
+              {mode === 'manual'
+                ? 'Enter £0 for categories you didn’t spend in. If you break down a category, you can leave unused amounts blank.'
+                : 'Choose the month the spending in your file belongs to.'}
+            </p>
+          </div>
+          <div className="field entry-month">
+            <label htmlFor="month"><CalendarDays size={16} aria-hidden="true" /> Spending month</label>
+            <input
             id="month"
             name="month"
             type="month"
@@ -61,7 +62,8 @@ function SpendingPage({ account, onSaved }: { account?: AccountInfo; onSaved?: (
             disabled={saving}
             onChange={(event) => setMonth(event.target.value)}
             required
-          />
+            />
+          </div>
         </div>
 
         <div hidden={mode !== 'manual'}>

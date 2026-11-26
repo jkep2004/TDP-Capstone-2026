@@ -3,6 +3,8 @@ import { expect, test } from '@playwright/test'
 test('saves itemized spending and displays saved and seeded insights', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('button', { name: 'Sign in with Microsoft' }).click()
+  await expect(page.getByRole('button', { name: 'Overview' })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Add spending' }).click()
   await expect(page.getByRole('heading', { name: 'Monthly spending' })).toBeVisible()
 
   await page.getByLabel('Spending month').fill('2026-12')
@@ -17,10 +19,19 @@ test('saves itemized spending and displays saved and seeded insights', async ({ 
   await expect(page.getByLabel('Reporting month')).toHaveValue('2026-12')
   const total = page.getByRole('region', { name: 'Estimated carbon footprint' })
   await expect(total).toContainText('50.9 kg CO₂e')
+  const recapTrigger = page.getByRole('button', { name: 'View monthly recap' })
+  await recapTrigger.click()
+  const recap = page.getByRole('dialog', { name: 'December 2026 recap' })
+  await expect(recap).toContainText('50.9 kg CO₂e')
+  await recap.getByRole('button', { name: 'Next' }).click()
+  await expect(recap.getByRole('heading', { name: 'Compared with last month' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(recap).not.toBeVisible()
+  await expect(recapTrigger).toBeFocused()
 
   // Reload to prove the result comes from saved data rather than form state.
   await page.reload()
-  await page.getByRole('button', { name: 'Insights' }).click()
+  await expect(page.getByRole('button', { name: 'Overview' })).toHaveAttribute('aria-pressed', 'true')
   const month = page.getByLabel('Reporting month')
   await month.selectOption('2026-12')
   await expect(total).toContainText('50.9 kg CO₂e')

@@ -61,7 +61,7 @@ describe('App', () => {
     render(<App />)
 
     expect(
-      screen.getByRole('heading', { name: 'Welcome' })
+      screen.getByRole('heading', { name: 'Sign in to your account' })
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Sign in with Microsoft' })
@@ -98,24 +98,28 @@ describe('App', () => {
     )
   })
 
-  it('shows the empty insights state and lets users return to spending', async () => {
+  it('lets first-time customers skip the intro and add spending from the overview', async () => {
     setAuthenticationState(true)
     const user = userEvent.setup()
     render(<App />)
 
-    await user.click(screen.getByRole('button', { name: 'Insights' }))
     expect(screen.getByRole('heading', { name: 'Spending insights' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Start with one month' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Skip for now' }))
     expect(await screen.findByRole('heading', { name: 'No spending insights yet' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'View example' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Spending' }))
+    await user.click(screen.getByRole('button', { name: 'Add your first month' }))
     expect(screen.getByRole('heading', { name: 'Monthly spending' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Overview' }))
+    expect(await screen.findByRole('heading', { name: 'No spending insights yet' })).toBeInTheDocument()
   })
 
   it('shows the spending page and supports signing out when authenticated', async () => {
     setAuthenticationState(true)
     const user = userEvent.setup()
     render(<App />)
+    await user.click(screen.getByRole('button', { name: 'Add spending' }))
     expect(
       screen.getByRole('heading', { name: 'Monthly spending' })
     ).toBeInTheDocument()

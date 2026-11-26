@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { AccountInfo } from '@azure/msal-browser'
+import { ArrowRight, ChevronDown, Wallet } from 'lucide-react'
+import CategoryIcon from '../../app/CategoryIcon'
 import { getCategories, saveSpending } from '../../services/api'
 import type { Category } from '../../services/api'
 import { customerErrorMessage } from '../../utils/customerError'
@@ -29,6 +31,7 @@ function SpendingForm({ month, account, onSaved, onSavingChange }: SpendingFormP
   } | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [invalidField, setInvalidField] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -79,6 +82,8 @@ function SpendingForm({ month, account, onSaved, onSavingChange }: SpendingFormP
       max={MAX_SPENDING_AMOUNT_GBP}
       step="0.01"
       placeholder="0.00"
+      aria-invalid={invalidField === inputId || undefined}
+      aria-describedby={invalidField === inputId ? 'manual-spending-error' : undefined}
       value={amounts[id] ?? ''}
       onChange={(event) => setAmounts({ ...amounts, [id]: event.target.value })}
       required={required}
@@ -88,11 +93,13 @@ function SpendingForm({ month, account, onSaved, onSavingChange }: SpendingFormP
   return (
     <form
       id="manual-spending-form"
+      className="manual-form"
       aria-describedby="spending-help"
       noValidate
       onChange={() => {
         setConfirmation(null)
         setError('')
+        setInvalidField('')
       }}
       onSubmit={async (event) => {
         event.preventDefault()
@@ -103,6 +110,7 @@ function SpendingForm({ month, account, onSaved, onSavingChange }: SpendingFormP
         }
         const invalid = event.currentTarget.querySelector<HTMLInputElement>('input[type="number"]:invalid')
         if (invalid) {
+          setInvalidField(invalid.id)
           setError(invalid.validity.valueMissing
             ? 'Enter a total for each category, or £0 if you didn’t spend in it.'
             : 'Enter amounts between £0 and £100,000, using up to two decimal places.')
@@ -133,18 +141,21 @@ function SpendingForm({ month, account, onSaved, onSavingChange }: SpendingFormP
         }
       }}
     >
-      {categoryError ? (
-        <div>
-          <p role="alert">{categoryError}</p>
-          <button type="button" onClick={() => {
-            setCategoryError('')
-            setCategoryAttempt((attempt) => attempt + 1)
-          }}>Retry loading categories</button>
-        </div>
-      ) : !categories ? <p role="status">Loading spending categories…</p>
-        : categories.length === 0 ? <p role="status">No spending categories are available.</p> : null}
-
       <div className="amount-fields">
+        {categoryError ? (
+          <div className="entry-recovery">
+            <p className="feedback-error" role="alert">{categoryError}</p>
+            <button className="button-secondary" type="button" onClick={() => {
+              setCategoryError('')
+              setCategoryAttempt((attempt) => attempt + 1)
+            }}>Retry loading categories</button>
+          </div>
+        ) : !categories ? (
+          <div className="category-loading" role="status">
+            <p>Loading spending categories…</p>
+            <div className="category-skeleton" aria-hidden="true"><span /><span /><span /></div>
+          </div>
+        ) : categories.length === 0 ? <p role="status">No spending categories are available.</p> : null}
         {categories?.map(({ id, name, subcategories }, index) => {
           const expanded = Boolean(itemized[id])
           const inputId = `${fieldPrefix}-amount-${index}`
@@ -153,8 +164,11 @@ function SpendingForm({ month, account, onSaved, onSavingChange }: SpendingFormP
           return (
             <fieldset className="spending-category" key={id} disabled={saving} aria-labelledby={labelId}>
               <div className="spending-category-row">
-                {expanded ? <span id={labelId} className="spending-category-name">{name}</span>
-                  : <label id={labelId} htmlFor={inputId}>{name} (£)</label>}
+                <div className="category-label">
+                  <CategoryIcon name={name} />
+                  {expanded ? <span id={labelId} className="spending-category-name">{name}</span>
+                    : <label id={labelId} htmlFor={inputId}>{name} (£)</label>}
+                </div>
                 {!expanded && renderAmount(id, inputId, true)}
                 {subcategories.length > 0 && (
                   <label className="spending-breakdown">
@@ -165,6 +179,7 @@ function SpendingForm({ month, account, onSaved, onSavingChange }: SpendingFormP
                       onChange={(event) => setItemized({ ...itemized, [id]: event.target.checked })}
                     />
                     By subcategory
+                    <ChevronDown size={15} className="breakdown-chevron" aria-hidden="true" />
                   </label>
                 )}
               </div>
@@ -183,21 +198,23 @@ function SpendingForm({ month, account, onSaved, onSavingChange }: SpendingFormP
         })}
       </div>
 
-      <div className="total">
-        <span>Total entered</span>
-        <strong>{formattedTotal}</strong>
+      <div className="manual-summary">
+        <div className="total">
+          <span><Wallet size={19} aria-hidden="true" /> Total entered</span>
+          <strong className="data-value">{formattedTotal}</strong>
+        </div>
+        <button className="save-button" type="submit" aria-busy={saving} disabled={saving || !account || !categories?.length || confirmation?.month === month}>
+          {saving && <span className="button-spinner" aria-hidden="true" />}
+          {saving ? 'Saving your spending…' : 'Save spending'}
+          {!saving && <ArrowRight size={18} aria-hidden="true" />}
+        </button>
+        {saving && <span className="visually-hidden" role="status">Saving your spending.</span>}
+        {error && <p id="manual-spending-error" className="feedback-error" role="alert">{error}</p>}
+
+        <p className="confirmation" role="status">
+          {!onSaved && confirmation?.month === month ? confirmation.message : ''}
+        </p>
       </div>
-
-      <button className="save-button" type="submit" aria-busy={saving} disabled={saving || !account || !categories?.length || confirmation?.month === month}>
-        {saving && <span className="button-spinner" aria-hidden="true" />}
-        {saving ? 'Saving your spending…' : 'Save spending'}
-      </button>
-      {saving && <span className="visually-hidden" role="status">Saving your spending.</span>}
-      {error && <p className="feedback-error" role="alert">{error}</p>}
-
-      <p className="confirmation" role="status">
-        {!onSaved && confirmation?.month === month ? confirmation.message : ''}
-      </p>
     </form>
   )
 }
