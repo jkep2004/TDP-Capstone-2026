@@ -71,6 +71,67 @@ The product should allow a customer to:
 - pytest
 - SQLAlchemy / SQL database connectivity
 
+## Local Development (API)
+
+Tests are run from the **repo root**. `pytest.ini` sets `pythonpath = api`
+and `testpaths = api/tests`.
+
+### 1. Python environment
+
+macOS / Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r api/requirements-dev.txt
+```
+
+Windows (PowerShell):
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r api/requirements-dev.txt
+```
+
+`requirements-dev.txt` includes `requirements.txt`. Install again after
+pulling `dev`, because new dependencies are added over time (e.g.
+`structlog`). The error `ModuleNotFoundError: No module named 'structlog'`
+means your environment is out of date.
+
+### 2. Environment variables
+
+Create a `.env` file in the repo root. It is git-ignored, and CI blocks it
+from being committed. Never commit it. Ask a teammate for the values. The
+required names (checked by `api/src/Core/config.py`) are:
+
+```
+DB_SERVER, DB_NAME, DB_ADMIN_USER, DB_ADMIN_PASSWORD,
+ENTRA_TENANT_ID, ENTRA_API_CLIENT_ID,
+APP_JWT_SECRET, APP_JWT_ALGORITHM, APP_JWT_EXPIRE_MINUTES
+```
+
+Optional: `DB_DRIVER` (e.g. `ODBC Driver 18 for SQL Server`).
+
+### 3. Database driver (only needed to talk to the real Azure SQL DB)
+
+Unit tests mock the database, so they run without a driver. To run the
+API against the real DB you need Microsoft's ODBC Driver 18.
+
+- **macOS:** `brew install unixodbc`, then install `msodbcsql18` from
+  Microsoft's Homebrew tap (see Microsoft's "Install the ODBC driver on
+  macOS" page).
+- **Windows:** install "ODBC Driver 18 for SQL Server".
+
+Your public IP may also need adding to the Azure SQL firewall.
+
+### 4. Run
+
+```bash
+python -m pytest -q                                   # all API tests (from repo root)
+cd api && python -m uvicorn src.main:app --reload     # dev server, docs at http://127.0.0.1:8000/docs
+```
+
 ## DevSecOps
 
 Security is part of development throughout the project.
