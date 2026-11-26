@@ -145,12 +145,3 @@ app.include_router(recommendations.router, prefix=prefix, tags=["Recommendations
 app.include_router(savings.router, prefix=prefix, tags=["Savings"])
 app.include_router(summary.router, prefix=prefix, tags=["Summary"])
 app.include_router(trends.router, prefix=prefix, tags=["Trends"])
-
-@app.get("/api/user") # DEBUG
-def user_endpoint(
-    user=Depends(get_current_user)
-):
-    return {
-        "message": "Authenticated API endpoint",
-        "user": user
-    }
