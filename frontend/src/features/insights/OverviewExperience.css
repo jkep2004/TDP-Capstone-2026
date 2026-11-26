@@ -13,8 +13,9 @@
   min-height: 340px;
   padding: clamp(1.4rem, 4.5vw, 3.35rem);
   border-radius: var(--radius-panel);
-  color: #f5f9ec;
-  background: var(--forest);
+  color: #ffffff;
+  background: var(--navy);
+  background-image: var(--gradient-navy);
 }
 
 .welcome-mark, .welcome-step-icon, .milestone-icon, .recap-mark {
@@ -24,15 +25,13 @@
   border-radius: 11px;
 }
 
-.welcome-mark { width: 48px; height: 48px; color: var(--forest); background: var(--lime); }
-.welcome-intro h2 { color: #f5f9ec; font-size: clamp(2.2rem, 4.4vw, 3.85rem); letter-spacing: -.05em; }
-.welcome-intro p { max-width: 38ch; color: #e0ecdb; }
+.welcome-mark { width: 48px; height: 48px; color: var(--navy); background: var(--highlight); }
+.welcome-intro h2 { color: #ffffff; font-size: clamp(2.2rem, 4.4vw, 3.85rem); letter-spacing: -.05em; }
+.welcome-intro p { max-width: 38ch; color: #dbe9ff; }
 .welcome-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem .75rem; }
-.welcome-actions button:first-child { color: var(--forest-deep); background: var(--lime); }
-.welcome-actions button:first-child:hover { color: var(--forest-deep); background: #e8f5cc; }
-.welcome-skip { color: #f5f9ec; background: transparent; }
-.welcome-skip:hover:not(:disabled) { color: #f5f9ec; background: #ffffff1a; }
-.welcome-intro :focus-visible { outline-color: var(--lime); }
+.welcome-skip { color: #ffffff; background: transparent; }
+.welcome-skip:hover:not(:disabled) { color: #ffffff; background: #ffffff1a; }
+.welcome-intro :focus-visible { outline-color: var(--highlight); }
 
 .welcome-steps {
   display: grid;
@@ -47,7 +46,7 @@
 }
 
 .welcome-steps li { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: .8rem; }
-.welcome-step-icon, .milestone-icon { width: 43px; height: 43px; color: var(--forest); background: var(--sage); }
+.welcome-step-icon, .milestone-icon { width: 43px; height: 43px; color: var(--navy); background: var(--blue-soft); }
 .welcome-steps p, .spending-milestones p { margin-top: .28rem; color: var(--muted); font-size: .92rem; }
 
 .overview-actions {
@@ -60,8 +59,6 @@
 }
 
 .overview-actions .insights-period { margin: 0; }
-.recap-trigger { color: var(--forest); background: var(--lime); border-color: #c4dda0; }
-.recap-trigger:hover:not(:disabled) { color: var(--forest-deep); background: #e5f4c6; }
 
 .spending-milestones {
   display: grid;
@@ -85,40 +82,41 @@
   border: 0;
   border-radius: 6px;
   background: var(--surface-alt);
-  accent-color: var(--emerald);
+  accent-color: var(--primary);
 }
 .milestone-scale progress::-webkit-progress-bar { border-radius: 6px; background: var(--surface-alt); }
-.milestone-scale progress::-webkit-progress-value { border-radius: 6px; background: var(--emerald); }
-.milestone-scale progress::-moz-progress-bar { border-radius: 6px; background: var(--emerald); }
+.milestone-scale progress::-webkit-progress-value { border-radius: 6px; background: var(--primary); }
+.milestone-scale progress::-moz-progress-bar { border-radius: 6px; background: var(--primary); }
 .milestone-scale ul { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; padding: 0; list-style: none; }
 .milestone-scale li { display: flex; align-items: center; justify-content: flex-end; gap: .2rem; color: var(--muted); font-size: .72rem; white-space: nowrap; }
 .milestone-scale li:last-child { grid-column: 4; }
-.milestone-scale li[data-reached='true'] { color: var(--emerald); font-weight: var(--weight-strong); }
+.milestone-scale li[data-reached='true'] { color: var(--primary); font-weight: var(--weight-strong); }
 
 .monthly-recap {
   width: min(100% - 2rem, 40rem);
   max-height: calc(100% - 2rem);
   padding: 0;
-  border: 1px solid #48675a;
+  border: 1px solid #47658e;
   border-radius: 1.05rem;
-  color: #f5f9ec;
-  background: var(--forest-deep);
+  color: #ffffff;
+  background: var(--navy-deep);
+  background-image: var(--gradient-navy);
   overscroll-behavior: contain;
 }
 
 .monthly-recap[open] { animation: appear var(--reveal) var(--ease) both; }
-.monthly-recap::backdrop { background: #0a1d17c4; }
+.monthly-recap::backdrop { background: #061936c4; }
 body:has(.monthly-recap[open]) { overflow: hidden; }
-.monthly-recap :focus-visible { outline-color: var(--lime); }
+.monthly-recap :focus-visible { outline-color: var(--highlight); }
 .recap-frame { display: grid; gap: var(--space-3); padding: clamp(1rem, 3.5vw, 2rem); }
 .recap-header, .recap-controls { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
-.recap-header p { color: #e0ecdb; font-weight: var(--weight-strong); }
-.recap-close, .recap-back { color: #f5f9ec; background: transparent; }
+.recap-header p { color: #dbe9ff; font-weight: var(--weight-strong); }
+.recap-close, .recap-back { color: #ffffff; background: transparent; }
 .recap-close { width: 44px; padding: 0; }
-.recap-close:hover:not(:disabled), .recap-back:hover:not(:disabled) { color: #f5f9ec; background: #ffffff20; }
+.recap-close:hover:not(:disabled), .recap-back:hover:not(:disabled) { color: #ffffff; background: #ffffff20; }
 .recap-progress { display: flex; gap: .4rem; }
-.recap-progress span { flex: 1; height: 4px; border-radius: 3px; background: #536b60; }
-.recap-progress span[data-complete='true'] { background: var(--lime); }
+.recap-progress span { flex: 1; height: 4px; border-radius: 3px; background: #5b7398; }
+.recap-progress span[data-complete='true'] { background: var(--accent-on-dark); }
 .recap-slide {
   display: grid;
   align-content: center;
@@ -128,13 +126,12 @@ body:has(.monthly-recap[open]) { overflow: hidden; }
   padding: clamp(.35rem, 2vw, 1rem);
   animation: appear-side var(--reveal) var(--ease) both;
 }
-.recap-mark { width: 53px; height: 53px; color: var(--lime); background: #28473a; }
-.recap-slide h2 { color: #f5f9ec; font-size: clamp(1.45rem, 3.2vw, 2rem); }
-.recap-value { max-width: 100%; color: var(--lime); font-size: clamp(2rem, 7vw, 3.65rem); font-weight: var(--weight-medium); letter-spacing: -.055em; line-height: 1.03; overflow-wrap: anywhere; }
-.recap-slide p:last-child, .recap-controls > span { color: #dbe8d9; }
-.recap-controls { padding-top: .7rem; border-top: 1px solid #48675a; }
+.recap-mark { width: 53px; height: 53px; color: var(--highlight); background: #23436f; }
+.recap-slide h2 { color: #ffffff; font-size: clamp(1.45rem, 3.2vw, 2rem); }
+.recap-value { max-width: 100%; color: var(--highlight); font-size: clamp(2rem, 7vw, 3.65rem); font-weight: var(--weight-medium); letter-spacing: -.055em; line-height: 1.03; overflow-wrap: anywhere; }
+.recap-slide p:last-child, .recap-controls > span { color: #deebff; }
+.recap-controls { padding-top: .7rem; border-top: 1px solid #47658e; }
 .recap-controls > span { font-size: .85rem; white-space: nowrap; }
-.recap-next, .recap-next:hover:not(:disabled) { color: var(--forest-deep); background: var(--lime); }
 
 @media (max-width: 700px) {
   .overview-welcome { grid-template-columns: 1fr; }

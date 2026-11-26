@@ -14,7 +14,7 @@ export default function OverviewWelcome({ onStart, onSkip }: { onStart: () => vo
         <h2 id="overview-welcome-heading">Start with one month</h2>
         <p>See where your money goes, what it means for your carbon footprint and where you could save.</p>
         <div className="welcome-actions">
-          <button type="button" onClick={onStart}>Add your first month <ArrowRight size={18} aria-hidden="true" /></button>
+          <button className="welcome-primary" type="button" onClick={onStart}>Add your first month <ArrowRight size={18} aria-hidden="true" /></button>
           <button className="welcome-skip" type="button" onClick={onSkip}>Skip for now</button>
         </div>
       </div>
