@@ -65,23 +65,12 @@ resource "azurerm_container_app" "api_app" {
   ingress {
     external_enabled = true
     target_port      = 8000
-    transport        = "auto" 
+    transport        = "auto"
     traffic_weight {
       latest_revision = true
       percentage      = 100
     }
   }
-  # original github secret config
-  # registry {
-  #   server               = "ghcr.io"
-  #   username             = "Helen_kuku"
-  #   password_secret_name = "ghcr-password"
-  # }
-
-  # secret {
-  #   name  = "ghcr-password"
-  #   value = var.github_pat
-  # }
 
   # use managed identity to access Key Vault secrets
   identity {
@@ -136,10 +125,6 @@ resource "azurerm_container_app" "api_app" {
         name  = "DB_USER"
         value = var.sql_admin_username
       }
-      # env {
-      #   name        = "DB_PASSWORD"
-      #   secret_name = "db-password"
-      # }
       env {
         name  = "DB_DRIVER"
         value = "ODBC Driver 18 for SQL Server"
@@ -148,10 +133,6 @@ resource "azurerm_container_app" "api_app" {
         name  = "DB_ADMIN_USER"
         value = var.sql_admin_username
       }
-      # env {
-      #   name        = "DB_ADMIN_PASSWORD"
-      #   secret_name = "db-password"
-      # }
       env {
         name  = "AZURE_TENANT_ID"
         value = var.TENANT_ID
@@ -162,11 +143,11 @@ resource "azurerm_container_app" "api_app" {
       }
       env {
         name  = "ENTRA_TENANT_ID"
-        value = "c2f2b391-a7cb-4676-b83c-59b507c6f6b7"
+        value = var.TENANT_ID
       }
       env {
         name  = "ENTRA_API_CLIENT_ID"
-        value = "38344a61-f922-47e6-b292-c374f1ea7076"
+        value = var.CLIENT_ID
       }
       env {
         name  = "APP_JWT_ALGORITHM"
@@ -194,13 +175,6 @@ resource "azurerm_container_app" "api_app" {
     azurerm_key_vault_secret.app_jwt_secret
   ]
 }
-
-  # secret {
-  #   name  = "db-password"
-  #   value = var.sql_admin_password
-  # }
-
-
 # 8. Azure Container App (Frontend Web Host)
 resource "azurerm_container_app" "frontend_app" {
   name                         = "ca-${var.project_name}-web-${var.environment}"
@@ -211,7 +185,7 @@ resource "azurerm_container_app" "frontend_app" {
   ingress {
     external_enabled = true
     target_port      = 80
-    transport        = "auto" 
+    transport        = "auto"
     traffic_weight {
       latest_revision = true
       percentage      = 100
@@ -237,13 +211,12 @@ resource "azurerm_container_app" "frontend_app" {
       memory = "0.5Gi"
 
       env {
-        name  = "VITE_API_BASE_URL"
+        name  = "VITE_API_URL"
         value = "https://${azurerm_container_app.api_app.ingress[0].fqdn}"
       }
     }
   }
 
-  #
   depends_on = [
     azurerm_container_app.api_app
   ]
@@ -252,14 +225,14 @@ resource "azurerm_container_app" "frontend_app" {
 data "azurerm_client_config" "current" {}
 
 resource "azurerm_key_vault" "kv" {
-  name                        = "kv-tdp26-carbon-t3-dev"
-  location                    = azurerm_resource_group.rg.location
-  resource_group_name         = azurerm_resource_group.rg.name
-  tenant_id                   = data.azurerm_client_config.current.tenant_id
-  sku_name                    = "standard"
-  soft_delete_retention_days  = 7
-  purge_protection_enabled    = false
-  rbac_authorization_enabled  = false
+  name                       = "kv-tdp26-carbon-t3-dev"
+  location                   = azurerm_resource_group.rg.location
+  resource_group_name        = azurerm_resource_group.rg.name
+  tenant_id                  = data.azurerm_client_config.current.tenant_id
+  sku_name                   = "standard"
+  soft_delete_retention_days = 7
+  purge_protection_enabled   = false
+  enable_rbac_authorization  = false
 }
 
 # 2. give read and write permissions to the current user
@@ -292,7 +265,7 @@ resource "azurerm_key_vault_access_policy" "api_app" {
 # 5. write specific Secrets to Key Vault
 resource "azurerm_key_vault_secret" "db_password" {
   name         = "db-password"
-  value        = var.db_password
+  value        = var.sql_admin_password
   key_vault_id = azurerm_key_vault.kv.id
 
   depends_on = [azurerm_key_vault_access_policy.current_user]

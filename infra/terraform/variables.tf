@@ -43,19 +43,13 @@ variable "github_pat" {
 variable "TENANT_ID" {
   description = "Azure Tenant ID for authentication"
   type        = string
-  default     = "c2f2b391-a7cb-4676-b83c-59b507c6f6b7" # Replace with your actual tenant ID
+  default     = "c2f2b391-a7cb-4676-b83c-59b507c6f6b7"
 }
 
 variable "CLIENT_ID" {
   description = "Azure Client ID for authentication"
   type        = string
-  default     = "38344a61-f922-47e6-b292-c374f1ea7076" 
-  }
-
-variable "db_password" {
-  description = "Database password stored in Azure Key Vault"
-  type        = string
-  sensitive   = true
+  default     = "38344a61-f922-47e6-b292-c374f1ea7076"
 }
 
 variable "app_jwt_secret" {
