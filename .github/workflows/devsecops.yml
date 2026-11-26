@@ -54,6 +54,10 @@ jobs:
           npm install
           npm run build
 
+      - name: Run Frontend Tests (Vitest)
+        working-directory: ./frontend
+        run: npm test
+
   # ==========================================
   # 2. UNIT TEST & FUNCTIONAL QUALITY
   # ==========================================
