@@ -2,9 +2,9 @@ name: DevSecOps CI/CD Pipeline
 
 on:
   push:
-    branches: ["main", "dev", "fix--azure-login"]
+    branches: ["main", "dev", "fix/azure_workflow_fix"]
   pull_request:
-    branches: ["main", "dev", "fix--azure-login"]
+    branches: ["main", "dev", "fix/azure_workflow_fix"]
   workflow_dispatch:
 
 permissions:
