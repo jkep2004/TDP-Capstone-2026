@@ -88,7 +88,7 @@ it('loads authenticated insights and changes the date on all monthly requests', 
           { month: '2026-11-01', total_carbon_kg: 1182.33 },
         ] })
       case '/api/v1/summary/':
-        return Response.json({ total_carbon_kg: 1182.33, categories: [{ category: 'Travel', carbon_kg: 1182.33 }] })
+        return Response.json({ total_spend_gbp: 426.11, total_carbon_kg: 1182.33, categories: [{ category: 'Travel', carbon_kg: 1182.33, monthly_spend_gbp: 426.11 }] })
       case '/api/v1/recommendations/':
         return Response.json({ recommendations: [{
           category: 'Travel', advice: 'Switch one journey to public transport.',
@@ -105,7 +105,8 @@ it('loads authenticated insights and changes the date on all monthly requests', 
   render(<InsightsPage account={account} />)
 
   expect(await screen.findByText('Switch one journey to public transport.')).toBeInTheDocument()
-  expect(screen.getByText('Month-to-month comparison unavailable.')).toBeInTheDocument()
+  expect(screen.getByText('There’s no spending from the previous month to compare.')).toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Monthly spending' })).toHaveTextContent('£426.11')
   expect(screen.getAllByText('£59.66')).toHaveLength(2)
   await user.selectOptions(screen.getByLabelText('Reporting month'), '2026-09')
   expect(await screen.findByText('Switch one journey to public transport.')).toBeInTheDocument()

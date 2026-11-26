@@ -34,7 +34,7 @@ describe('CsvUpload', () => {
     await user.upload(screen.getByLabelText('Choose a CSV file'),
       createCsvFile('customer_id,week,travel,food,utilities\n1,6,10,20,30'))
     await user.click(screen.getByRole('button', { name: 'Preview spending' }))
-    const calculate = await screen.findByRole('button', { name: 'Calculate carbon impact' })
+    const calculate = await screen.findByRole('button', { name: 'Estimate carbon impact' })
     await user.click(calculate)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Week numbers must be between 1 and 5')
@@ -81,7 +81,7 @@ describe('CsvUpload', () => {
 
     await user.upload(screen.getByLabelText('Choose a CSV file'), createCsvFile(validCsv))
     await user.click(screen.getByRole('button', { name: 'Preview spending' }))
-    await user.selectOptions(await screen.findByLabelText('Customer in file'), '2')
+    await user.selectOptions(await screen.findByLabelText('Spending group'), 'Group 2')
     await user.click(screen.getByRole('button', { name: 'Save spending' }))
 
     expect(await screen.findByText('Saved 3 entries for October 2026.')).toBeInTheDocument()
@@ -110,10 +110,9 @@ describe('CsvUpload', () => {
 
     await user.upload(screen.getByLabelText('Choose a CSV file'), createCsvFile(validCsv))
     await user.click(screen.getByRole('button', { name: 'Preview spending' }))
-    await user.click(await screen.findByRole('button', { name: 'Calculate carbon impact' }))
+    await user.click(await screen.findByRole('button', { name: 'Estimate carbon impact' }))
 
-    expect(await screen.findByText('2 kg CO₂e')).toBeInTheDocument()
-    expect(screen.getByText('Estimated using your uploaded spending and category emission factors.')).toBeInTheDocument()
+    expect(await screen.findByText('Estimated carbon footprint')).toHaveTextContent('2 kg CO₂e')
     expect(request).toHaveBeenCalledTimes(2)
     expect(request.mock.calls[0][0]).toMatch(/\/api\/v1\/categories\/$/)
     const [url, options] = request.mock.calls[1]
@@ -143,7 +142,7 @@ describe('CsvUpload', () => {
     expect(
       await screen.findByRole('heading', { name: 'Spending preview' })
     ).toBeInTheDocument()
-    expect(screen.getByText('Selected month:')).toHaveTextContent('October 2026')
+    expect(screen.getByText(/Check they belong to October 2026/)).toBeInTheDocument()
     expect(
       within(screen.getByRole('table')).getAllByRole('row')
     ).toHaveLength(4)
@@ -163,7 +162,7 @@ describe('CsvUpload', () => {
     await user.click(screen.getByRole('button', { name: 'Preview spending' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Use these columns:'
+      'This file isn’t in the expected spending format.'
     )
   })
 })

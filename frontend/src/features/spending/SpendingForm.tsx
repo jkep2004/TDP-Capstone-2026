@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { AccountInfo } from '@azure/msal-browser'
 import { getCategories, saveSpending } from '../../services/api'
 import type { Category } from '../../services/api'
@@ -9,11 +9,15 @@ import { MAX_SPENDING_AMOUNT_GBP } from './spendingAmount'
 type SpendingFormProps = {
   month: string
   account?: AccountInfo
+  onSaved?: (month: string) => void
+  onSavingChange?: (saving: boolean) => void
 }
 
 type SpendingCategory = Category & { subcategories: Category[] }
 
-function SpendingForm({ month, account }: SpendingFormProps) {
+function SpendingForm({ month, account, onSaved, onSavingChange }: SpendingFormProps) {
+  const fieldPrefix = useId()
+  const requestPending = useRef(false)
   const [categories, setCategories] = useState<SpendingCategory[]>()
   const [categoryError, setCategoryError] = useState('')
   const [categoryAttempt, setCategoryAttempt] = useState(0)
@@ -66,10 +70,9 @@ function SpendingForm({ month, account }: SpendingFormProps) {
     currency: 'GBP',
   }).format(totalPence / 100)
 
-  const renderAmount = (id: number, required = false) => (
+  const renderAmount = (id: number, inputId: string, required = false) => (
     <input
-      id={`spending-category-${id}`}
-      name={`spending-category-${id}`}
+      id={inputId}
       type="number"
       inputMode="decimal"
       min="0"
@@ -86,18 +89,33 @@ function SpendingForm({ month, account }: SpendingFormProps) {
     <form
       id="manual-spending-form"
       aria-describedby="spending-help"
+      noValidate
       onChange={() => {
         setConfirmation(null)
         setError('')
       }}
       onSubmit={async (event) => {
         event.preventDefault()
-        if (!month || !account || saving || !categories?.length || confirmation?.month === month) return
+        if (!account || requestPending.current || !categories?.length || confirmation?.month === month) return
+        if (!month) {
+          setError('Choose a month for your spending.')
+          return
+        }
+        const invalid = event.currentTarget.querySelector<HTMLInputElement>('input[type="number"]:invalid')
+        if (invalid) {
+          setError(invalid.validity.valueMissing
+            ? 'Enter a total for each category, or £0 if you didn’t spend in it.'
+            : 'Enter amounts between £0 and £100,000, using up to two decimal places.')
+          invalid.focus()
+          return
+        }
         if (entries.length === 0) {
           setError('Enter at least one spending amount.')
           return
         }
+        requestPending.current = true
         setSaving(true)
+        onSavingChange?.(true)
         setConfirmation(null)
         setError('')
         try {
@@ -105,10 +123,13 @@ function SpendingForm({ month, account }: SpendingFormProps) {
             ...entry, month: `${month}-01`, week: null,
           })), account)
           setConfirmation({ month, message: `Spending saved for ${formatMonth(month)} (${formattedTotal}).` })
+          onSaved?.(month)
         } catch (error) {
           setError(customerErrorMessage(error, 'We couldn’t save your spending. Please try again.'))
         } finally {
+          requestPending.current = false
           setSaving(false)
+          onSavingChange?.(false)
         }
       }}
     >
@@ -124,15 +145,17 @@ function SpendingForm({ month, account }: SpendingFormProps) {
         : categories.length === 0 ? <p role="status">No spending categories are available.</p> : null}
 
       <div className="amount-fields">
-        {categories?.map(({ id, name, subcategories }) => {
+        {categories?.map(({ id, name, subcategories }, index) => {
           const expanded = Boolean(itemized[id])
+          const inputId = `${fieldPrefix}-amount-${index}`
+          const labelId = `${fieldPrefix}-label-${index}`
 
           return (
-            <fieldset className="spending-category" key={id} disabled={saving} aria-labelledby={`spending-label-${id}`}>
+            <fieldset className="spending-category" key={id} disabled={saving} aria-labelledby={labelId}>
               <div className="spending-category-row">
-                {expanded ? <span id={`spending-label-${id}`} className="spending-category-name">{name}</span>
-                  : <label id={`spending-label-${id}`} htmlFor={`spending-category-${id}`}>{name} (£)</label>}
-                {!expanded && renderAmount(id, true)}
+                {expanded ? <span id={labelId} className="spending-category-name">{name}</span>
+                  : <label id={labelId} htmlFor={inputId}>{name} (£)</label>}
+                {!expanded && renderAmount(id, inputId, true)}
                 {subcategories.length > 0 && (
                   <label className="spending-breakdown">
                     <input
@@ -147,10 +170,10 @@ function SpendingForm({ month, account }: SpendingFormProps) {
               </div>
               {expanded && (
                 <div className="spending-subcategories">
-                  {subcategories.map(({ id, name }) => (
+                  {subcategories.map(({ id, name }, subIndex) => (
                     <div className="field" key={id}>
-                      <label htmlFor={`spending-category-${id}`}>{name} (£)</label>
-                      {renderAmount(id)}
+                      <label htmlFor={`${inputId}-${subIndex}`}>{name} (£)</label>
+                      {renderAmount(id, `${inputId}-${subIndex}`)}
                     </div>
                   ))}
                 </div>
@@ -165,13 +188,15 @@ function SpendingForm({ month, account }: SpendingFormProps) {
         <strong>{formattedTotal}</strong>
       </div>
 
-      <button type="submit" disabled={saving || !account || !categories?.length || confirmation?.month === month}>
-        {saving ? 'Saving…' : 'Save spending'}
+      <button className="save-button" type="submit" aria-busy={saving} disabled={saving || !account || !categories?.length || confirmation?.month === month}>
+        {saving && <span className="button-spinner" aria-hidden="true" />}
+        {saving ? 'Saving your spending…' : 'Save spending'}
       </button>
-      {error && <p role="alert">{error}</p>}
+      {saving && <span className="visually-hidden" role="status">Saving your spending.</span>}
+      {error && <p className="feedback-error" role="alert">{error}</p>}
 
       <p className="confirmation" role="status">
-        {confirmation?.month === month ? confirmation.message : ''}
+        {!onSaved && confirmation?.month === month ? confirmation.message : ''}
       </p>
     </form>
   )

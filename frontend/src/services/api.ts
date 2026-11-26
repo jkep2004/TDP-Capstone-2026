@@ -42,6 +42,9 @@ export async function calculateSpending(spending: SpendingEntry[]) {
     body: JSON.stringify({ spending })
   });
   if (!response.ok) {
+    if (response.status === 422) {
+      throw new CustomerError("Calculation failed (HTTP 422)", "Check the weeks and amounts in your file, then try again.");
+    }
     throw new Error(`Calculation failed (HTTP ${response.status})`);
   }
   return response.json() as Promise<{
@@ -52,7 +55,8 @@ export async function calculateSpending(spending: SpendingEntry[]) {
 
 async function exchangeToken(
   account: AccountInfo,
-  baseUrl = apiUrl
+  baseUrl = apiUrl,
+  signal?: AbortSignal
 ) {
   const entraToken = await msalInstance.acquireTokenSilent({
     ...loginRequest,
@@ -67,7 +71,8 @@ async function exchangeToken(
   const authResponse = await fetch(`${baseUrl}/api/v1/auth/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: entraToken.accessToken })
+    body: JSON.stringify({ token: entraToken.accessToken }),
+    signal,
   });
 
   if (!authResponse.ok) {
@@ -81,7 +86,7 @@ async function exchangeToken(
 }
 
 export async function getInsights(account: AccountInfo, signal: AbortSignal) {
-  const { access_token } = await exchangeToken(account, insightsApiUrl);
+  const { access_token } = await exchangeToken(account, insightsApiUrl, signal);
   const headers = { Authorization: `Bearer ${access_token}` };
 
   async function get<T>(path: string, requestSignal: AbortSignal): Promise<T> {
@@ -97,8 +102,9 @@ export async function getInsights(account: AccountInfo, signal: AbortSignal) {
       const query = `?month=${month}-01`;
       const [summary, recommendations, savings] = await Promise.all([
         get<{
+          total_spend_gbp: number;
           total_carbon_kg: number;
-          categories: { category: string; carbon_kg: number | null }[];
+          categories: { category: string; carbon_kg: number | null; monthly_spend_gbp: number }[];
         }>(`summary/${query}`, monthSignal),
         get<{ recommendations: {
           category: string;
@@ -110,8 +116,9 @@ export async function getInsights(account: AccountInfo, signal: AbortSignal) {
       ]);
       return {
         month,
+        totalSpendGbp: summary.total_spend_gbp,
         totalCarbonKg: summary.total_carbon_kg,
-        categories: summary.categories.map((item) => ({ name: item.category, carbonKg: item.carbon_kg })),
+        categories: summary.categories.map((item) => ({ name: item.category, carbonKg: item.carbon_kg, spendGbp: item.monthly_spend_gbp })),
         recommendations: recommendations.recommendations.map((item) => ({
           category: item.category,
           advice: item.advice,
@@ -144,7 +151,9 @@ export async function saveSpending(
         "Some of this spending has already been saved for the selected month. Choose another month or review your entries and try again."
       );
     }
+    if (response.status === 422) {
+      throw new CustomerError("Save failed (HTTP 422)", "Check the month and spending amounts, then try again.");
+    }
     throw new Error(`Save failed (HTTP ${response.status})`);
   }
-  return response.json() as Promise<{ spendingIds: number[] }>;
 }

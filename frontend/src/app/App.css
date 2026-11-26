@@ -33,7 +33,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  background: #edf3fa;
+  background: var(--account-tint);
 }
 
 .auth-mark {
@@ -43,7 +43,7 @@
   place-items: center;
   margin-bottom: 20px;
   color: white;
-  background: #163d70;
+  background: var(--account-action);
   border-radius: 12px;
   font-size: 1.5rem;
   font-weight: 700;
@@ -85,7 +85,7 @@
   margin: 0;
   padding: 14px 20px;
   color: white;
-  background: #163d70;
+  background: var(--account-action);
   border: 0;
   border-radius: 8px;
   font: inherit;
@@ -94,7 +94,7 @@
 }
 
 .auth-action .sign-in-button:hover:not(:disabled) {
-  background: #102e56;
+  background: var(--account-action-hover);
 }
 
 .auth-action .sign-in-button:disabled {
@@ -102,7 +102,6 @@
   cursor: wait;
 }
 
-.auth-action .auth-note,
 .auth-action .auth-error {
   margin: 14px 0 0;
   font-size: 0.9rem;
@@ -110,13 +109,6 @@
 
 .auth-action .auth-error {
   color: #a12622;
-}
-
-.auth-footer {
-  margin: 20px 0 0;
-  color: #526173;
-  font-size: 0.9rem;
-  text-align: center;
 }
 
 .account-bar {
@@ -131,8 +123,16 @@
   font-size: 0.9rem;
 }
 
-.account-bar strong {
-  color: #182638;
+.product-name {
+  color: var(--account-ink);
+  font-weight: 750;
+}
+
+.account-error {
+  max-width: 772px;
+  margin: 12px auto;
+  padding: 0 16px;
+  color: #842321;
 }
 
 .account-bar button {
@@ -140,9 +140,9 @@
   min-height: 40px;
   margin: 0;
   padding: 8px 16px;
-  color: #163d70;
-  background: #edf3fa;
-  border: 1px solid #c8d4e2;
+  color: var(--account-ink);
+  background: var(--account-tint);
+  border: 1px solid var(--account-border);
   border-radius: 8px;
   font: inherit;
   font-weight: 700;
@@ -150,7 +150,7 @@
 }
 
 .account-bar button:hover {
-  background: #dce8f5;
+  background: #d9e9e5;
 }
 
 @media (max-width: 640px) {

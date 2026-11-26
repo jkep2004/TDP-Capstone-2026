@@ -1,25 +1,30 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { AccountInfo } from '@azure/msal-browser'
 import { calculateSpending, resolveSpendingCategories, saveSpending } from '../../services/api'
 import { CustomerError, customerErrorMessage } from '../../utils/customerError'
+import { formatCarbon, formatMoney } from '../../utils/formatAmounts'
 import { formatMonth } from '../../utils/formatMonth'
 import { parseSpendingCsv } from './parseSpendingCsv'
 import type { SpendingRow } from './parseSpendingCsv'
 
 const categories = ['travel', 'food', 'utilities'] as const
+const categoryNames = { travel: 'Travel', food: 'Food', utilities: 'Utilities' }
 
 type CsvUploadProps = {
   month: string
   customerId?: string
   account?: AccountInfo
+  onSaved?: (month: string) => void
+  onSavingChange?: (saving: boolean) => void
 }
 
-function CsvUpload({ month, customerId, account }: CsvUploadProps) {
+function CsvUpload({ month, customerId, account, onSaved, onSavingChange }: CsvUploadProps) {
+  const requestPending = useRef(false)
   const [file, setFile] = useState<File | null>(null)
   const [fileRows, setFileRows] = useState<SpendingRow[]>([])
-  const [selectedCustomer, setSelectedCustomer] = useState<number>()
+  const [selectedGroup, setSelectedGroup] = useState(0)
   const customers = [...new Set(fileRows.map((row) => row.customer_id))]
-  const rows = fileRows.filter((row) => row.customer_id === selectedCustomer)
+  const rows = fileRows.filter((row) => row.customer_id === customers[selectedGroup])
   const [isReading, setIsReading] = useState(false)
   const [error, setError] = useState('')
   const [calculation, setCalculation] = useState<{
@@ -52,18 +57,23 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
   }
 
   const save = async () => {
-    if (!month || !account || busy) return
+    if (!month || !account || busy || requestPending.current || saved?.month === month) return
+    requestPending.current = true
     setSaving(true)
+    onSavingChange?.(true)
     setSaveError('')
     setSaved(undefined)
     try {
       const { entries } = await buildEntries()
-      const result = await saveSpending(entries, account)
-      setSaved({ month, count: result.spendingIds.length })
+      await saveSpending(entries, account)
+      setSaved({ month, count: entries.length })
+      onSaved?.(month)
     } catch (error) {
       setSaveError(customerErrorMessage(error, 'We couldn’t save your spending. Please try again.'))
     } finally {
+      requestPending.current = false
       setSaving(false)
+      onSavingChange?.(false)
     }
   }
 
@@ -77,7 +87,7 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
       setCalculation({
         totalCarbonKg: result.totalCarbonKg,
         categoryTotals: categoryIds.map(({ category, categoryID }) => ({
-          category,
+          category: categoryNames[category],
           carbonKg: result.breakdown.filter((item) => item.category === categoryID)
             .reduce((total, item) => total + item.carbonKg, 0),
         })),
@@ -105,18 +115,14 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
 
     try {
       const text = await file.text().catch(() => {
-        throw new Error('We couldn’t read this file. Please select it again.')
+        throw new CustomerError('We couldn’t read this file. Please select it again.')
       })
       const parsedRows = parseSpendingCsv(text)
 
       setFileRows(parsedRows)
-      setSelectedCustomer(parsedRows[0]?.customer_id)
+      setSelectedGroup(0)
     } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : 'We couldn’t read this file. Please select it again.'
-      )
+      setError(customerErrorMessage(error, 'We couldn’t read this file. Please select it again.'))
     } finally {
       setIsReading(false)
     }
@@ -132,23 +138,16 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
     { travel: 0, food: 0, utilities: 0 }
   )
 
-  const formatPence = (pence: number) =>
-    new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency: 'GBP',
-    }).format(pence / 100)
+  const formatPence = (pence: number) => formatMoney(pence / 100)
 
   return (
     <div>
-      <p className="help-text">
-        Selected month: <strong>{selectedMonth}</strong>
-      </p>
+      <a className="template-link" href={`${import.meta.env.BASE_URL}spending-template.csv`} download>Download a spending template</a>
 
       <div className="field">
-        <label htmlFor="spending-csv">Choose a CSV file</label>
-
         <input
           id="spending-csv"
+          className="visually-hidden"
           type="file"
           accept=".csv"
           disabled={busy}
@@ -163,17 +162,10 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
             clearCalculation()
           }}
         />
+        <label className="file-picker" htmlFor="spending-csv">{file ? 'Choose another CSV file' : 'Choose a CSV file'}</label>
       </div>
 
-      {file && (
-        <p role="status">
-          Selected file: <strong>{file.name}</strong>
-        </p>
-      )}
-
-      <p className="help-text">
-        Preview the file, then save the selected rows to your signed-in account.
-      </p>
+      {file && rows.length === 0 && !error && <p role="status">File selected.</p>}
 
       <button
         type="button"
@@ -183,7 +175,7 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
         {isReading ? 'Reading file…' : 'Preview spending'}
       </button>
 
-      {error && <p role="alert">{error}</p>}
+      {error && <p className="feedback-error" role="alert">{error}</p>}
 
       {rows.length > 0 && (
         <section aria-labelledby="csv-preview-heading">
@@ -191,22 +183,23 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
 
           {customers.length > 1 && (
             <div className="field">
-              <label htmlFor="csv-customer">Customer in file</label>
-              <select id="csv-customer" value={selectedCustomer} disabled={busy} onChange={(event) => {
-                setSelectedCustomer(Number(event.target.value))
+              <label htmlFor="csv-group">Spending group</label>
+              <p className="help-text">This file has more than one group. Check the preview and select the group with your spending.</p>
+              <select id="csv-group" value={selectedGroup} disabled={busy} onChange={(event) => {
+                setSelectedGroup(Number(event.target.value))
                 clearCalculation()
                 setSaved(undefined)
                 setSaveError('')
               }}>
-                {customers.map((customer) => <option key={customer} value={customer}>{customer}</option>)}
+                {customers.map((customer, index) => <option key={customer} value={index}>Group {index + 1}</option>)}
               </select>
             </div>
           )}
 
-          <div className="csv-preview">
+          <div className="csv-preview" tabIndex={0} role="region" aria-label="Weekly spending table">
             <table className="spending-table">
               <caption>
-                Recorded weekly spending for customer {selectedCustomer} in the file
+                Weekly spending in the selected file
               </caption>
 
               <thead>
@@ -256,32 +249,31 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
           </div>
 
           <p className="help-text">
-            These totals cover only the weeks provided. The file has
-            no dates, so it cannot confirm coverage of the selected
-            month.
+            These totals cover the weeks shown. Check they belong to {month ? selectedMonth : 'the month you select'} before saving.
           </p>
-          <button type="button" onClick={save} disabled={busy || !month || !account || saved?.month === month}>
-            {saving ? 'Saving…' : 'Save spending'}
+          <button className="save-button" type="button" onClick={save} aria-busy={saving} disabled={busy || !month || !account || saved?.month === month}>
+            {saving && <span className="button-spinner" aria-hidden="true" />}
+            {saving ? 'Saving your spending…' : 'Save spending'}
           </button>
-          {saveError && <p role="alert">{saveError}</p>}
-          {saved?.month === month && (
+          {saving && <span className="visually-hidden" role="status">Saving your spending.</span>}
+          {saveError && <p className="feedback-error" role="alert">{saveError}</p>}
+          {!onSaved && saved?.month === month && (
             <p role="status">Saved {saved.count} {saved.count === 1 ? 'entry' : 'entries'} for {selectedMonth}.</p>
           )}
-          <button type="button" onClick={calculate} disabled={busy || !month || !customerId}>
-            {isCalculating ? 'Calculating…' : 'Calculate carbon impact'}
+          <button className="mode-button csv-estimate-button" type="button" onClick={calculate} disabled={busy || !month || !customerId}>
+            {isCalculating ? 'Preparing your estimate…' : 'Estimate carbon impact'}
           </button>
-          {calculationError && <p role="alert">{calculationError}</p>}
+          {calculationError && <p className="feedback-error" role="alert">{calculationError}</p>}
           {calculation && (
-            <div role="status">
-              <p>Total carbon impact: <strong>{calculation.totalCarbonKg} kg CO₂e</strong></p>
+            <div className="csv-estimate" role="status">
+              <p>Estimated carbon footprint <strong>{formatCarbon(calculation.totalCarbonKg)}</strong></p>
               <ul>
                 {calculation.categoryTotals.map(({ category, carbonKg }) => (
                   <li key={category}>
-                    {category}: {carbonKg} kg CO₂e
+                    {category} <strong>{formatCarbon(carbonKg)}</strong>
                   </li>
                 ))}
               </ul>
-              <p>Estimated using your uploaded spending and category emission factors.</p>
             </div>
           )}
         </section>

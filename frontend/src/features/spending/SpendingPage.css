@@ -4,12 +4,6 @@
   padding: 48px 24px;
 }
 
-.eyebrow {
-  color: #355371;
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
 h1 {
   margin: 12px 0;
   font-size: clamp(2rem, 5vw, 2.75rem);
@@ -30,7 +24,7 @@ h2 {
   margin-top: 32px;
   padding: 32px;
   background: white;
-  border: 1px solid #dce2e9;
+  border: 1px solid var(--account-border);
   border-radius: 16px;
 }
 
@@ -43,23 +37,23 @@ h2 {
 
 .mode-button {
   margin-top: 0;
-  color: #163d70;
-  background: #edf3fa;
-  border: 1px solid #c8d4e2;
+  color: var(--account-ink);
+  background: var(--account-tint);
+  border: 1px solid var(--account-border);
 }
 
 .mode-button[aria-pressed='true'] {
   color: white;
-  background: #163d70;
-  border-color: #163d70;
+  background: var(--account-action);
+  border-color: var(--account-action);
 }
 
 .mode-button:hover {
-  background: #dce8f5;
+  background: #d9e9e5;
 }
 
 .mode-button[aria-pressed='true']:hover {
-  background: #102e56;
+  background: var(--account-action-hover);
 }
 
 .field {
@@ -162,14 +156,14 @@ button {
   margin-top: 8px;
   padding: 14px 20px;
   border: none;
-  background: #163d70;
+  background: var(--account-action);
   color: white;
   font-weight: 700;
   cursor: pointer;
 }
 
 button:hover {
-  background: #102e56;
+  background: var(--account-action-hover);
 }
 
 .confirmation {
@@ -213,9 +207,87 @@ button:hover {
   line-height: 1.6;
 }
 
+.file-picker {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 8px 16px;
+  color: var(--account-ink);
+  background: var(--account-tint);
+  border: 1px solid var(--account-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.template-link {
+  color: var(--account-ink);
+  text-underline-offset: 3px;
+}
+
+.field select {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #788698;
+  border-radius: 8px;
+  background: white;
+}
+
+.csv-estimate-button {
+  margin-top: 8px;
+}
+
+#spending-csv:focus-visible + .file-picker {
+  outline: 3px solid #267a85;
+  outline-offset: 3px;
+}
+
+#spending-csv:disabled + .file-picker {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.csv-estimate {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--account-border);
+  border-radius: 10px;
+  background: var(--account-tint);
+}
+
+.csv-estimate p,
+.csv-estimate ul {
+  margin: 0;
+}
+
+.csv-estimate p strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--account-ink);
+  font-size: 1.4rem;
+}
+
+.csv-estimate ul {
+  padding: 12px 0 0;
+  list-style: none;
+}
+
+.csv-estimate li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--account-border);
+}
+
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.save-button[aria-busy='true'] {
+  opacity: 1;
+  cursor: wait;
 }
 
 .spending-table {
@@ -243,4 +315,12 @@ button:disabled {
 
 .spending-table tfoot {
   font-weight: 700;
+}
+
+@media (max-width: 420px) {
+  .csv-preview,
+  .spending-table th,
+  .spending-table td {
+    padding: 8px;
+  }
 }

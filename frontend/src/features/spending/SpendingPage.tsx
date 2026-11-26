@@ -5,17 +5,17 @@ import './SpendingPage.css'
 import CsvUpload from './CsvUpload'
 import SpendingForm from './SpendingForm'
 
-function SpendingPage({ account }: { account?: AccountInfo } = {}) {
+function SpendingPage({ account, onSaved }: { account?: AccountInfo; onSaved?: (month: string) => void } = {}) {
   const [month, setMonth] = useState('')
   const [mode, setMode] = useState<'manual' | 'csv'>('manual')
+  const [saving, setSaving] = useState(false)
 
   return (
     <main className="spending-page">
       <header>
-        <p className="eyebrow">Carbon & Savings Advisor</p>
         <h1>Monthly spending</h1>
         <p className="intro">
-          Enter your monthly totals to start understanding your carbon impact.
+          Add a month of spending to see your estimated carbon footprint and potential savings.
         </p>
       </header>
 
@@ -24,6 +24,7 @@ function SpendingPage({ account }: { account?: AccountInfo } = {}) {
           <button
             type="button"
             className="mode-button"
+            disabled={saving}
             aria-pressed={mode === 'manual'}
             onClick={() => setMode('manual')}
           >
@@ -32,6 +33,7 @@ function SpendingPage({ account }: { account?: AccountInfo } = {}) {
           <button
             type="button"
             className="mode-button"
+            disabled={saving}
             aria-pressed={mode === 'csv'}
             onClick={() => setMode('csv')}
           >
@@ -44,8 +46,8 @@ function SpendingPage({ account }: { account?: AccountInfo } = {}) {
         </h2>
         <p id="spending-help" className="help-text">
           {mode === 'manual'
-            ? 'Enter monthly totals in pounds (£), or break them down by subcategory. Enter 0 for an unused category total. You can leave unused subcategories blank.'
-            : 'Choose the month that this CSV would apply to.'}
+            ? 'Enter £0 for categories you didn’t spend in. If you break down a category, you can leave unused amounts blank.'
+            : 'Choose the month the spending in your file belongs to.'}
         </p>
 
         <div className="field">
@@ -56,16 +58,17 @@ function SpendingPage({ account }: { account?: AccountInfo } = {}) {
             type="month"
             form="manual-spending-form"
             value={month}
+            disabled={saving}
             onChange={(event) => setMonth(event.target.value)}
             required
           />
         </div>
 
         <div hidden={mode !== 'manual'}>
-          <SpendingForm month={month} account={account} />
+          <SpendingForm month={month} account={account} onSaved={onSaved} onSavingChange={setSaving} />
         </div>
         <div hidden={mode !== 'csv'}>
-          <CsvUpload month={month} customerId={account?.localAccountId} account={account} />
+          <CsvUpload month={month} customerId={account?.localAccountId} account={account} onSaved={onSaved} onSavingChange={setSaving} />
         </div>
       </section>
     </main>

@@ -12,13 +12,16 @@ test('saves itemized spending and displays saved and seeded insights', async ({ 
     await page.getByRole('spinbutton', { name: `${category} (£)` }).fill('0')
   }
   await page.getByRole('button', { name: 'Save spending' }).click()
-  await expect(page.getByText('Spending saved for December 2026 (£100.00).')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Spending insights' })).toBeFocused()
+  await expect(page.getByText('Spending saved for December 2026.')).toBeVisible()
+  await expect(page.getByLabel('Reporting month')).toHaveValue('2026-12')
+  const total = page.getByRole('region', { name: 'Estimated carbon footprint' })
+  await expect(total).toContainText('50.9 kg CO₂e')
 
   // Reload to prove the result comes from saved data rather than form state.
   await page.reload()
   await page.getByRole('button', { name: 'Insights' }).click()
   const month = page.getByLabel('Reporting month')
-  const total = page.getByRole('region', { name: 'Total carbon impact' })
   await month.selectOption('2026-12')
   await expect(total).toContainText('50.9 kg CO₂e')
 

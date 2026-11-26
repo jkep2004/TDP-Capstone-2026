@@ -6,21 +6,27 @@ describe('parseSpendingCsv', () => {
   const header = 'customer_id,week,travel,food,utilities'
 
   it('rejects a header-only file with blank lines', () => {
-    expect(() => parseSpendingCsv(`${header}\n\n`)).toThrow('The file contains no spending records.')
+    expect(() => parseSpendingCsv(`${header}\n\n`)).toThrow('This file has no spending to add.')
   })
 
   it('rejects a row with missing fields', () => {
-    expect(() => parseSpendingCsv(`${header}\n1,1,10,20`)).toThrow('The CSV could not be parsed.')
+    expect(() => parseSpendingCsv(`${header}\n1,1,10,20`)).toThrow('Check that each row has the same number of columns')
+  })
+
+  it('accepts the customer template without a spending group column', () => {
+    expect(parseSpendingCsv('Week,Travel,Food,Utilities\n1,12.50,30,40')).toEqual([
+      { customer_id: 1, week: 1, travel: 12.5, food: 30, utilities: 40 },
+    ])
   })
 
   it.each([
-    ['0,1,10,20,30', 'customer_id must be a positive whole number'],
-    ['1,1.5,10,20,30', 'week must be a positive whole number'],
-    ['1,1,-10,20,30', 'travel must be a non-negative amount'],
-    ['1,1,10,,30', 'food must be a non-negative amount'],
-    ['1,1,10,20,90071992547409.92', 'utilities must be £100,000 or less'],
+    ['0,1,10,20,30', 'Enter a valid spending group'],
+    ['1,1.5,10,20,30', 'Enter a week number above zero'],
+    ['1,1,-10,20,30', 'Travel needs an amount in pounds'],
+    ['1,1,10,,30', 'Food needs an amount in pounds'],
+    ['1,1,10,20,90071992547409.92', 'Utilities must be £100,000 or less'],
   ])('rejects invalid record %s', (row, message) => {
-    expect(() => parseSpendingCsv(`${header}\n${row}`)).toThrow(`Record 1: ${message}`)
+    expect(() => parseSpendingCsv(`${header}\n${row}`)).toThrow(`Check row 1. ${message}`)
   })
 
   it('accepts £100,000 in each spending column', () => {
@@ -30,12 +36,12 @@ describe('parseSpendingCsv', () => {
   })
 
   it.each([
-    ['travel', '100000.01,0,0'],
-    ['food', '0,100000.01,0'],
-    ['utilities', '0,0,100000.01'],
+    ['Travel', '100000.01,0,0'],
+    ['Food', '0,100000.01,0'],
+    ['Utilities', '0,0,100000.01'],
   ])('rejects £100,000.01 in the %s column', (column, amounts) => {
     expect(() => parseSpendingCsv(`${header}\n1,1,${amounts}`)).toThrow(
-      `Record 1: ${column} must be £100,000 or less.`
+      `Check row 1. ${column} must be £100,000 or less.`
     )
   })
 
@@ -63,7 +69,7 @@ describe('parseSpendingCsv', () => {
   it('rejects CSV files with incorrect headers', () => {
     const csv = 'customer_id,week,travel,food\n1,1,12,30'
 
-    expect(() => parseSpendingCsv(csv)).toThrow('Use these columns:')
+    expect(() => parseSpendingCsv(csv)).toThrow('This file isn’t in the expected spending format.')
   })
 
   // One customer cannot have two records for the same week.
@@ -73,7 +79,7 @@ describe('parseSpendingCsv', () => {
       '1,1,12,30,40\n' +
       '1,1,8,20,10'
 
-    expect(() => parseSpendingCsv(csv)).toThrow('duplicate week')
+    expect(() => parseSpendingCsv(csv)).toThrow('Include each week only once per spending group.')
   })
 
   // Currency values with more than two decimal places are invalid.
@@ -82,6 +88,6 @@ describe('parseSpendingCsv', () => {
       'customer_id,week,travel,food,utilities\n' +
       '1,1,12.345,30,40'
 
-    expect(() => parseSpendingCsv(csv)).toThrow('travel must be a non-negative amount')
+    expect(() => parseSpendingCsv(csv)).toThrow('Travel needs an amount in pounds with up to two decimal places.')
   })
 })

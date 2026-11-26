@@ -105,7 +105,7 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: 'Insights' }))
     expect(screen.getByRole('heading', { name: 'Spending insights' })).toBeInTheDocument()
-    expect(await screen.findByText('No spending insights yet. Save spending to see a monthly summary.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No spending insights yet' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'View example' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Spending' }))
@@ -120,7 +120,7 @@ describe('App', () => {
       screen.getByRole('heading', { name: 'Monthly spending' })
     ).toBeInTheDocument()
     expect(screen.queryByText(/API session/)).not.toBeInTheDocument()
-    expect(screen.getByText('learner@example.com')).toBeInTheDocument()
+    expect(screen.queryByText('learner@example.com')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
 

@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { getCategories, saveSpending } from '../../services/api'
 import SpendingForm from './SpendingForm'
@@ -81,13 +81,14 @@ it.each(['-1', '0.001', '100001'])('blocks an invalid amount of %s', async (amou
   await user.click(screen.getByRole('button', { name: 'Save spending' }))
 
   expect(food).toBeInvalid()
+  expect(screen.getByRole('alert')).toHaveTextContent('Enter amounts between £0 and £100,000')
   expect(saveSpending).not.toHaveBeenCalled()
 })
 
 it('keeps entered amounts after a failed save and allows a retry', async () => {
   vi.mocked(saveSpending)
     .mockRejectedValueOnce(new Error('Save failed (HTTP 503)'))
-    .mockResolvedValueOnce({ spendingIds: [11, 12, 13] })
+    .mockResolvedValueOnce(undefined)
   const user = userEvent.setup()
   render(<SpendingForm month="2026-03" account={account} />)
   const food = await screen.findByRole('spinbutton', { name: /Food/ })
@@ -106,4 +107,26 @@ it('keeps entered amounts after a failed save and allows a retry', async () => {
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   expect(save).toBeDisabled()
   expect(saveSpending).toHaveBeenCalledTimes(2)
+})
+
+it('waits for the save to complete before opening insights and ignores a second submission', async () => {
+  vi.mocked(getCategories).mockResolvedValueOnce([{ id: 1, name: 'Food', parent_id: null }])
+  let finishSave!: () => void
+  vi.mocked(saveSpending).mockImplementationOnce(() => new Promise<void>((resolve) => { finishSave = resolve }))
+  const onSaved = vi.fn()
+  const user = userEvent.setup()
+  render(<SpendingForm month="2026-03" account={account} onSaved={onSaved} />)
+
+  await user.type(await screen.findByRole('spinbutton', { name: /Food/ }), '15')
+  const save = screen.getByRole('button', { name: 'Save spending' })
+  await user.click(save)
+  fireEvent.submit(save.closest('form')!)
+
+  expect(save).toBeDisabled()
+  expect(saveSpending).toHaveBeenCalledTimes(1)
+  expect(onSaved).not.toHaveBeenCalled()
+
+  finishSave()
+  await screen.findByRole('button', { name: 'Save spending' })
+  expect(onSaved).toHaveBeenCalledExactlyOnceWith('2026-03')
 })
