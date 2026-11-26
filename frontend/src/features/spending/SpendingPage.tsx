@@ -76,16 +76,19 @@ function SpendingPage({ account, onSaved }: { account?: AccountInfo; onSaved?: (
           </div>
           <div className="field entry-month">
             <label htmlFor="month"><CalendarDays size={16} aria-hidden="true" /> Spending month</label>
-            <input
-            id="month"
-            name="month"
-            type="month"
-            form="manual-spending-form"
-            value={month}
-            disabled={saving}
-            onChange={(event) => setMonth(event.target.value)}
-            required
-            />
+            <div className="entry-month-control">
+              <input
+                id="month"
+                name="month"
+                type="month"
+                form="manual-spending-form"
+                value={month}
+                disabled={saving}
+                onChange={(event) => setMonth(event.target.value)}
+                required
+              />
+              {!month && <span className="entry-month-placeholder" aria-hidden="true">Choose a month</span>}
+            </div>
           </div>
         </div>
 
