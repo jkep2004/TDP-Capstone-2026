@@ -113,6 +113,7 @@ describe('CsvUpload', () => {
     await user.click(await screen.findByRole('button', { name: 'Calculate carbon impact' }))
 
     expect(await screen.findByText('2 kg CO₂e')).toBeInTheDocument()
+    expect(screen.getByText('Estimated using your uploaded spending and category emission factors.')).toBeInTheDocument()
     expect(request).toHaveBeenCalledTimes(2)
     expect(request.mock.calls[0][0]).toMatch(/\/api\/v1\/categories\/$/)
     const [url, options] = request.mock.calls[1]

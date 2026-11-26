@@ -281,7 +281,7 @@ function CsvUpload({ month, customerId, account }: CsvUploadProps) {
                   </li>
                 ))}
               </ul>
-              <p>The current API returns placeholder carbon values.</p>
+              <p>Estimated using your uploaded spending and category emission factors.</p>
             </div>
           )}
         </section>

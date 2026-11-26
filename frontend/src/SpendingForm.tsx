@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { AccountInfo } from '@azure/msal-browser'
 import { getCategories, saveSpending } from './api'
 import type { Category } from './api'
+import { MAX_SPENDING_AMOUNT_GBP } from './utils/spendingAmount'
 
 type SpendingFormProps = {
   month: string
@@ -70,7 +71,7 @@ function SpendingForm({ month, account }: SpendingFormProps) {
       type="number"
       inputMode="decimal"
       min="0"
-      max="100000"
+      max={MAX_SPENDING_AMOUNT_GBP}
       step="0.01"
       placeholder="0.00"
       value={amounts[id] ?? ''}

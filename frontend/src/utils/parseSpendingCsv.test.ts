@@ -18,9 +18,25 @@ describe('parseSpendingCsv', () => {
     ['1,1.5,10,20,30', 'week must be a positive whole number'],
     ['1,1,-10,20,30', 'travel must be a non-negative amount'],
     ['1,1,10,,30', 'food must be a non-negative amount'],
-    ['1,1,10,20,90071992547409.92', 'utilities must be a non-negative amount'],
+    ['1,1,10,20,90071992547409.92', 'utilities must be £100,000 or less'],
   ])('rejects invalid record %s', (row, message) => {
     expect(() => parseSpendingCsv(`${header}\n${row}`)).toThrow(`Record 1: ${message}`)
+  })
+
+  it('accepts £100,000 in each spending column', () => {
+    expect(parseSpendingCsv(`${header}\n1,1,100000.00,100000.00,100000.00`)).toEqual([
+      { customer_id: 1, week: 1, travel: 100_000, food: 100_000, utilities: 100_000 },
+    ])
+  })
+
+  it.each([
+    ['travel', '100000.01,0,0'],
+    ['food', '0,100000.01,0'],
+    ['utilities', '0,0,100000.01'],
+  ])('rejects £100,000.01 in the %s column', (column, amounts) => {
+    expect(() => parseSpendingCsv(`${header}\n1,1,${amounts}`)).toThrow(
+      `Record 1: ${column} must be £100,000 or less.`
+    )
   })
 
   it('allows different customers to use the same week', () => {
