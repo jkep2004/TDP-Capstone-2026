@@ -677,12 +677,18 @@ def test_zero_amount_is_accepted(
 
     assert item.amount == 0
 
+def test_amount_at_limit_is_accepted(valid_payload):
+    valid_payload["amount"] = 100_000
+    Item = SpendingItem(**valid_payload)
+    assert Item.amount == 100_000
+
+def test_amount_exceeding_limit_is_rejected(valid_payload, mock_db):
+    valid_payload["amount"] = 100_000.01
+    response = client.post("/spend/", json=valid_payload)
+    assert response.status_code == 422
+    mock_db.execute.assert_not_called()
 
 
-def test_amount_exceeding_limit_is_rejected(valid_payload):
-    valid_payload["amount"] = 100_001
-    item = SpendingItem(valid_payload)
-    assert item.amount == 100_000
 
 def test_missing_amount(
     mock_db,
