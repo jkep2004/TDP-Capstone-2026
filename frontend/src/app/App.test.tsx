@@ -11,9 +11,9 @@ import {
 
 import App from './App'
 import { loginRequest } from '../auth/authConfig'
-import { getCategories, getInsights } from '../services/api'
+import { getCategories, getChallenges, getInsights } from '../services/api'
 
-vi.mock('../services/api', () => ({ getCategories: vi.fn(), getInsights: vi.fn() }))
+vi.mock('../services/api', () => ({ getCategories: vi.fn(), getChallenges: vi.fn(), getInsights: vi.fn() }))
 
 vi.mock('@azure/msal-react', () => ({
   useIsAuthenticated: vi.fn(),
@@ -49,6 +49,10 @@ describe('App', () => {
     vi.mocked(getInsights).mockReset()
     vi.mocked(getCategories).mockResolvedValue([])
     vi.mocked(getInsights).mockResolvedValue({ months: [], loadMonth: vi.fn() })
+    vi.mocked(getChallenges).mockResolvedValue({
+      months: [], medal: { completed_challenges: 0, medal: null },
+      getMedal: vi.fn(), loadMonth: vi.fn(), updateStatus: vi.fn(),
+    })
     loginRedirect.mockReset()
     loginRedirect.mockResolvedValue(undefined)
     logoutRedirect.mockReset()
@@ -129,5 +133,23 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
 
     expect(logoutRedirect).toHaveBeenCalledOnce()
+  })
+
+  it('opens the dedicated Challenges screen from the account navigation', async () => {
+    setAuthenticationState(true)
+    const user = userEvent.setup()
+    render(<App />)
+
+    const challenges = screen.getByRole('button', { name: /^Challenges$/ })
+    await user.click(challenges)
+
+    expect(challenges).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('heading', { name: 'Sustainability challenges' })).toBeVisible()
+    expect((await screen.findByText('challenges completed')).parentElement).toHaveTextContent('0 challenges completed')
+    expect(screen.getByText('Add a month of spending to get challenges based on your spending.')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Skip to content' })).toHaveAttribute('href', '#challenges-content')
+
+    await user.click(screen.getByRole('button', { name: 'Overview' }))
+    expect(screen.getByRole('heading', { name: 'Spending insights' })).toBeVisible()
   })
 })

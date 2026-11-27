@@ -5,6 +5,8 @@ import { defineConfig } from 'vite'
 const msalFixture = fileURLToPath(new URL('./msal.ts', import.meta.url))
 
 export default defineConfig({
+  // The test identity changes module resolution, so keep its dependency bundles separate.
+  cacheDir: 'node_modules/.vite-e2e',
   plugins: [react()],
   // Activate the identity fixture only when Playwright launches this config.
   resolve: {

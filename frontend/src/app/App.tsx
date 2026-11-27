@@ -4,11 +4,12 @@ import {
   useMsal,
 } from '@azure/msal-react'
 import type { AccountInfo } from '@azure/msal-browser'
-import { ArrowRight, ChartNoAxesCombined, Leaf, LogOut, Wallet } from 'lucide-react'
+import { ArrowRight, ChartNoAxesCombined, Leaf, LogOut, Medal, Wallet } from 'lucide-react'
 
 import { loginRequest } from '../auth/authConfig'
 import woodland from '../assets/woodland-river.webp'
 import woodlandSmall from '../assets/woodland-river-small.webp'
+import ChallengesPage from '../features/challenges/ChallengesPage'
 import SpendingPage from '../features/spending/SpendingPage'
 import InsightsPage from '../features/insights/InsightsPage'
 import './App.css'
@@ -23,7 +24,7 @@ function Brand() {
 }
 
 function CustomerArea({ account, signOut }: { account: AccountInfo; signOut: () => Promise<void> }) {
-  const [section, setSection] = useState<'spending' | 'insights'>('insights')
+  const [section, setSection] = useState<'spending' | 'insights' | 'challenges'>('insights')
   const [hasOpenedSpending, setHasOpenedSpending] = useState(false)
   const [introDismissed, setIntroDismissed] = useState(false)
   const [savedMonth, setSavedMonth] = useState<string>()
@@ -39,7 +40,7 @@ function CustomerArea({ account, signOut }: { account: AccountInfo; signOut: () 
 
   return (
     <>
-      <a className="skip-link" href={section === 'spending' ? '#spending-content' : '#insights-content'}>Skip to content</a>
+      <a className="skip-link" href={`#${section}-content`}>Skip to content</a>
       <header className="account-header">
         <div className="account-bar">
           <Brand />
@@ -49,6 +50,12 @@ function CustomerArea({ account, signOut }: { account: AccountInfo; signOut: () 
             </button>
             <button type="button" aria-pressed={section === 'spending'} onClick={openSpending}>
               <Wallet size={17} aria-hidden="true" /> Add spending
+            </button>
+            <button type="button" aria-pressed={section === 'challenges'} onClick={() => {
+              setSection('challenges')
+              requestAnimationFrame(() => document.getElementById('challenges-content')?.focus())
+            }}>
+              <Medal size={17} aria-hidden="true" /> Challenges
             </button>
           </nav>
           <button className="sign-out-button" type="button" disabled={isSigningOut} onClick={async () => {
@@ -77,6 +84,7 @@ function CustomerArea({ account, signOut }: { account: AccountInfo; signOut: () 
             introDismissed={introDismissed} onDismissIntro={() => setIntroDismissed(true)} />
         </div>
       )}
+      {section === 'challenges' && <ChallengesPage account={account} onAddSpending={openSpending} />}
     </>
   )
 }
