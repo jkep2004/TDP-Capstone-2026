@@ -316,6 +316,7 @@ jobs:
           pip install -r api/requirements.txt httpx uvicorn
 
       - name: Start API & Run DAST Checks on POST /calculate
+        shell: bash # use bash to run background process and loop
         env:
           DB_SERVER: ${{ secrets.DB_SERVER }}
           DB_NAME: ${{ secrets.DB_NAME }}
@@ -330,6 +331,7 @@ jobs:
           APP_JWT_ALGORITHM: ${{ secrets.APP_JWT_ALGORITHM }}
           APP_JWT_EXPIRE_MINUTES: ${{ secrets.APP_JWT_EXPIRE_MINUTES }}
         run: |
+          set -o pipefail
           python -m uvicorn src.main:app --app-dir api --host 127.0.0.1 --port 8000 > api-server.log 2>&1 &
 
           # wait for API to be ready (up to 15 seconds)
@@ -473,3 +475,12 @@ jobs:
             --name "$FRONTEND_APP_NAME" \
             --resource-group "$RESOURCE_GROUP" \
             --image "${{ needs.publish-docker.outputs.frontend_image }}"
+        
+      - name: Post-deploy smoke test
+        shell: bash
+        run: |
+          set -e
+          echo "Running smoke test against deployed API..."
+          curl -fsS --retry 6 --retry-delay 10 --retry-all-errors --max-time 20 \
+            "https://ca-tdp2026-carbon-team3-api-dev.blackground-28a725c3.uksouth.azurecontainerapps.io/api/v1/health/database"
+          echo "Smoke test passed."
