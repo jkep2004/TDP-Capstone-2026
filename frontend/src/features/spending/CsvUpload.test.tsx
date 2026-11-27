@@ -1,0 +1,183 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+
+import CsvUpload from './CsvUpload'
+
+afterEach(() => vi.unstubAllGlobals())
+
+vi.mock('../../auth/msal', () => ({
+  msalInstance: { acquireTokenSilent: vi.fn().mockResolvedValue({ accessToken: 'entra-token' }) },
+}))
+
+const validCsv =
+  'customer_id,week,travel,food,utilities\n' +
+  '1,1,12.50,30,40\n' +
+  '2,1,100,100,100\n' +
+  '1,2,0,20.25,15'
+
+function createCsvFile(contents: string) {
+  const file = new File([contents], 'spending.csv', { type: 'text/csv' })
+  Object.defineProperty(file, 'text', {
+    value: vi.fn().mockResolvedValue(contents),
+  })
+  return file
+}
+
+describe('CsvUpload', () => {
+  it('previews a spending file dropped onto the upload area', async () => {
+    const user = userEvent.setup()
+    render(<CsvUpload month="2026-10" />)
+    const dropZone = screen.getByRole('group', { name: 'Upload a spending file' })
+    const dataTransfer = { types: ['Files'], files: [createCsvFile('Week,Travel,Food,Utilities\n1,1,2,3')] }
+
+    fireEvent.dragEnter(dropZone, { dataTransfer })
+    expect(dropZone).toHaveAttribute('data-dragging', 'true')
+    fireEvent.drop(dropZone, { dataTransfer })
+    expect(dropZone).toHaveAttribute('data-dragging', 'false')
+    await user.click(screen.getByRole('button', { name: 'Preview spending' }))
+
+    expect(await screen.findByText('£6.00')).toBeInTheDocument()
+  })
+
+  it('rejects a week outside the selected month before requesting a calculation', async () => {
+    const request = vi.fn()
+    vi.stubGlobal('fetch', request)
+    const user = userEvent.setup()
+    render(<CsvUpload month="2026-10" customerId="customer" />)
+
+    await user.upload(screen.getByLabelText('Choose a CSV file'),
+      createCsvFile('customer_id,week,travel,food,utilities\n1,6,10,20,30'))
+    await user.click(screen.getByRole('button', { name: 'Preview spending' }))
+    const calculate = await screen.findByRole('button', { name: 'Estimate carbon impact' })
+    await user.click(calculate)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Week numbers must be between 1 and 5')
+    expect(calculate).toBeEnabled()
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('clears a previous preview when a replacement file cannot be read', async () => {
+    const user = userEvent.setup()
+    render(<CsvUpload month="2026-10" />)
+    const input = screen.getByLabelText('Choose a CSV file')
+    const preview = screen.getByRole('button', { name: 'Preview spending' })
+    await user.upload(input, createCsvFile(validCsv))
+    await user.click(preview)
+    expect(await screen.findByRole('table')).toBeInTheDocument()
+
+    const unreadable = new File([], 'unreadable.csv', { type: 'text/csv' })
+    Object.defineProperty(unreadable, 'text', {
+      value: vi.fn().mockRejectedValue(new Error('File could not be read.')),
+    })
+    await user.upload(input, unreadable)
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    await user.click(preview)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t read this file. Please select it again.')
+    expect(screen.queryByRole('button', { name: 'Save spending' })).not.toBeInTheDocument()
+  })
+
+  it('saves all previewed categories and weeks in one authenticated request', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(Response.json([
+        { id: 1, name: 'Travel', parent_id: null },
+        { id: 2, name: 'Food', parent_id: null },
+        { id: 3, name: 'Utilities', parent_id: null },
+      ]))
+      .mockResolvedValueOnce(Response.json({ access_token: 'app-token', user: { id: 'customer' } }))
+      .mockResolvedValueOnce(Response.json({ spendingIds: [51, 52, 53] }))
+    vi.stubGlobal('fetch', request)
+    const user = userEvent.setup()
+    render(<CsvUpload month="2026-10" account={{
+      homeAccountId: 'home', localAccountId: 'local', tenantId: 'tenant',
+      environment: 'login.microsoftonline.com', username: 'learner@example.com',
+    }} />)
+
+    await user.upload(screen.getByLabelText('Choose a CSV file'), createCsvFile(validCsv))
+    await user.click(screen.getByRole('button', { name: 'Preview spending' }))
+    await user.selectOptions(await screen.findByLabelText('Spending group'), 'Group 2')
+    await user.click(screen.getByRole('button', { name: 'Save spending' }))
+
+    expect(await screen.findByText('Saved 3 entries for October 2026.')).toBeInTheDocument()
+    expect(request).toHaveBeenCalledTimes(3)
+    const [url, options] = request.mock.calls[2]
+    expect(url).toMatch(/\/api\/v1\/spend\/month$/)
+    expect(options.headers.Authorization).toBe('Bearer app-token')
+    expect(JSON.parse(options.body)).toEqual([1, 2, 3].map((categoryID) => ({
+      customerID: 'customer', month: '2026-10-01', week: 1, categoryID, amount: 100,
+    })))
+  })
+
+  it('calculates carbon impact using only the previewed weekly rows', async () => {
+    const customerId = 'b55b72a0-1df6-4d73-bf41-8110a29ac51d'
+    const request = vi.fn().mockResolvedValueOnce(Response.json([
+      { id: 1, name: 'Travel', parent_id: null },
+      { id: 2, name: 'Food', parent_id: null },
+      { id: 3, name: 'Utilities', parent_id: null },
+    ])).mockResolvedValueOnce(Response.json({
+      totalCarbonKg: 2,
+      breakdown: [{ category: 1, amount: 12.5, carbonKg: 2 }],
+    }))
+    vi.stubGlobal('fetch', request)
+    const user = userEvent.setup()
+    render(<CsvUpload month="2026-10" customerId={customerId} />)
+
+    await user.upload(screen.getByLabelText('Choose a CSV file'), createCsvFile(validCsv))
+    await user.click(screen.getByRole('button', { name: 'Preview spending' }))
+    await user.click(await screen.findByRole('button', { name: 'Estimate carbon impact' }))
+
+    expect(await screen.findByText('Estimated carbon footprint')).toHaveTextContent('2 kg CO₂e')
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(request.mock.calls[0][0]).toMatch(/\/api\/v1\/categories\/$/)
+    const [url, options] = request.mock.calls[1]
+    expect(url).toMatch(/\/api\/v1\/calculate\/$/)
+    expect(options.method).toBe('POST')
+    expect(JSON.parse(options.body)).toEqual({
+      spending: [
+        { customerID: customerId, month: '2026-10-01', week: 1, categoryID: 1, amount: 12.5 },
+        { customerID: customerId, month: '2026-10-01', week: 1, categoryID: 2, amount: 30 },
+        { customerID: customerId, month: '2026-10-01', week: 1, categoryID: 3, amount: 40 },
+        { customerID: customerId, month: '2026-10-01', week: 2, categoryID: 1, amount: 0 },
+        { customerID: customerId, month: '2026-10-01', week: 2, categoryID: 2, amount: 20.25 },
+        { customerID: customerId, month: '2026-10-01', week: 2, categoryID: 3, amount: 15 },
+      ],
+    })
+  })
+
+  // Preview only demo-customer rows and calculate their totals for the chosen month.
+  it('previews valid records for the demo customer and excludes other customers', async () => {
+    const user = userEvent.setup()
+    render(<CsvUpload month="2026-10" />)
+
+    const file = createCsvFile(validCsv)
+    await user.upload(screen.getByLabelText('Choose a CSV file'), file)
+    await user.click(screen.getByRole('button', { name: 'Preview spending' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Spending preview' })
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Check they belong to October 2026/)).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('table')).getAllByRole('row')
+    ).toHaveLength(4)
+    expect(screen.getByText('£117.75')).toBeInTheDocument()
+    expect(screen.queryByText('£100.00')).not.toBeInTheDocument()
+  })
+
+  // Files without the required columns should show a clear validation error.
+  it('shows an error when the selected CSV has invalid headers', async () => {
+    const user = userEvent.setup()
+    render(<CsvUpload month="2026-10" />)
+
+    await user.upload(
+      screen.getByLabelText('Choose a CSV file'),
+      createCsvFile('customer_id,week,travel,food\n1,1,10,20')
+    )
+    await user.click(screen.getByRole('button', { name: 'Preview spending' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This file isn’t in the expected spending format.'
+    )
+  })
+})

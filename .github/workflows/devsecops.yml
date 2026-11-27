@@ -2,9 +2,9 @@ name: DevSecOps CI/CD Pipeline
 
 on:
   push:
-    branches: ["main", "dev","feature-firewall"]
+    branches: ["main", "dev", "fix/azure_workflow_fix"]
   pull_request:
-    branches: ["main", "dev","feature-firewall"]
+    branches: ["main", "dev", "fix/azure_workflow_fix"]
   workflow_dispatch:
 
 permissions:
@@ -53,6 +53,10 @@ jobs:
         run: |
           npm install
           npm run build
+
+      - name: Run Frontend Tests (Vitest)
+        working-directory: ./frontend
+        run: npm test
 
   # ==========================================
   # 2. UNIT TEST & FUNCTIONAL QUALITY
@@ -107,7 +111,7 @@ jobs:
             --end-ip-address "$RUNNER_IP"
 
           # wait a few seconds to ensure the Azure firewall rule takes effect
-          sleep 10    
+          sleep 10
 
       - name: Run Pytest & Generate Report
         env:
@@ -145,12 +149,74 @@ jobs:
           path: pytest-report.xml
 
   # ==========================================
+  # 2b. BROWSER END-TO-END TESTS
+  # ==========================================
+  e2e:
+    name: 2b. Browser End-to-End Tests
+    runs-on: ubuntu-24.04
+    needs: build
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install API dependencies and SQL Server driver
+        run: |
+          curl -fsSL https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb -o "$RUNNER_TEMP/packages-microsoft-prod.deb"
+          sudo dpkg -i "$RUNNER_TEMP/packages-microsoft-prod.deb"
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev
+          python -m pip install -r api/requirements-dev.txt
+
+      - name: Start and seed the temporary SQL Server database
+        env:
+          DB_SERVER: '127.0.0.1,1433'
+          DB_NAME: CapstoneE2E
+          DB_ADMIN_USER: sa
+        run: |
+          export MSSQL_SA_PASSWORD="E2e!$(openssl rand -hex 20)"
+          echo "::add-mask::$MSSQL_SA_PASSWORD"
+          echo "E2E_SQL_PASSWORD=$MSSQL_SA_PASSWORD" >> "$GITHUB_ENV"
+          docker run --detach --rm --name capstone-e2e-sql \
+            --publish 127.0.0.1:1433:1433 \
+            --env ACCEPT_EULA=Y --env MSSQL_PID=Developer --env MSSQL_SA_PASSWORD \
+            mcr.microsoft.com/mssql/server:2022-latest
+          deadline=$((SECONDS + 90))
+          until docker exec capstone-e2e-sql bash -c \
+            'exec /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -b -l 2 -Q "SELECT 1"' >/dev/null 2>&1; do
+            if (( SECONDS >= deadline )); then
+              echo "::error::Temporary SQL Server did not become ready"
+              exit 1
+            fi
+            sleep 2
+          done
+          DB_ADMIN_PASSWORD="$MSSQL_SA_PASSWORD" python infra/database/init_db.py --with-test-data
+
+      - name: Install frontend dependencies and Chromium
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Test spending and insights in Chromium
+        working-directory: ./frontend
+        run: npm run test:e2e
+
+  # ==========================================
   # 3. SAST (STATIC APPLICATION SECURITY TESTING)
   # ==========================================
   sast:
     name: 3. SAST (Bandit)
     runs-on: ubuntu-latest
-    needs: test
+    needs: build
 
     steps:
       - name: Checkout repository
@@ -183,7 +249,7 @@ jobs:
   sca:
     name: 4. SCA (Dependency Audit)
     runs-on: ubuntu-latest
-    needs: test
+    needs: build
 
     steps:
       - name: Checkout repository
@@ -223,7 +289,7 @@ jobs:
   dast:
     name: 5. DAST (API Dynamic Security)
     runs-on: ubuntu-latest
-    needs: [sast, sca]
+    needs: [test, sast, sca]
 
     steps:
       - name: Checkout repository
@@ -250,6 +316,7 @@ jobs:
           pip install -r api/requirements.txt httpx uvicorn
 
       - name: Start API & Run DAST Checks on POST /calculate
+        shell: bash # use bash to run background process and loop
         env:
           DB_SERVER: ${{ secrets.DB_SERVER }}
           DB_NAME: ${{ secrets.DB_NAME }}
@@ -264,8 +331,9 @@ jobs:
           APP_JWT_ALGORITHM: ${{ secrets.APP_JWT_ALGORITHM }}
           APP_JWT_EXPIRE_MINUTES: ${{ secrets.APP_JWT_EXPIRE_MINUTES }}
         run: |
+          set -o pipefail
           python -m uvicorn src.main:app --app-dir api --host 127.0.0.1 --port 8000 > api-server.log 2>&1 &
-          
+
           # wait for API to be ready (up to 15 seconds)
           for i in {1..15}; do
             if curl -s http://127.0.0.1:8000/docs > /dev/null; then
@@ -279,7 +347,7 @@ jobs:
           import httpx
 
           client = httpx.Client(base_url="http://127.0.0.1:8000", timeout=10.0)
-          endpoint = "/api/v1/calculate"
+          endpoint = "/api/v1/calculate/"
 
           tests = [
               ("Invalid Input / Unexpected Params", {"invalid_field": "malformed", "extra": 999}),
@@ -312,10 +380,13 @@ jobs:
   publish-docker:
     name: 6. Build & Publish Docker Images
     runs-on: ubuntu-latest
-    needs: [build, test, sast, sca, dast]
+    needs: [build, test, e2e, sast, sca, dast]
     permissions:
       contents: read
       packages: write
+    outputs:
+      backend_image: ${{ steps.image.outputs.backend }}:${{ github.sha }}
+      frontend_image: ${{ steps.image.outputs.frontend }}:${{ github.sha }}
 
     steps:
       - name: Checkout repository
@@ -365,5 +436,51 @@ jobs:
           tags: |
             ${{ steps.image.outputs.frontend }}:${{ steps.image.outputs.env_tag }}
             ${{ steps.image.outputs.frontend }}:${{ github.sha }}
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
+            VITE_ENTRA_CLIENT_ID=${{ secrets.VITE_ENTRA_CLIENT_ID }}
+            VITE_ENTRA_API_CLIENT_ID=${{ secrets.VITE_ENTRA_API_CLIENT_ID }}
           cache-from: type=gha,scope=frontend
           cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=frontend' || '' }}
+
+  # ==========================================
+  # 7. DEPLOY TO AZURE CONTAINER APPS
+  # ==========================================
+  deploy:
+    name: 7. Deploy to Azure Container Apps
+    runs-on: ubuntu-latest
+    needs: publish-docker
+    if: github.event_name == 'push'
+    env:
+      RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+      BACKEND_APP_NAME: ca-tdp2026-carbon-team3-api-dev
+      FRONTEND_APP_NAME: ca-tdp2026-carbon-team3-web-dev
+
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIAL }}
+
+      - name: Deploy Backend Container App
+        run: |
+          az containerapp update \
+            --name "$BACKEND_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "${{ needs.publish-docker.outputs.backend_image }}"
+
+      - name: Deploy Frontend Container App
+        run: |
+          az containerapp update \
+            --name "$FRONTEND_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "${{ needs.publish-docker.outputs.frontend_image }}"
+        
+      - name: Post-deploy smoke test
+        shell: bash
+        run: |
+          set -e
+          echo "Running smoke test against deployed API..."
+          curl -fsS --retry 6 --retry-delay 10 --retry-all-errors --max-time 20 \
+            "https://ca-tdp2026-carbon-team3-api-dev.blackground-28a725c3.uksouth.azurecontainerapps.io/api/v1/health/database"
+          echo "Smoke test passed."

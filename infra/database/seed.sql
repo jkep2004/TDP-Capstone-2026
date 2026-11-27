@@ -93,11 +93,25 @@ INSERT INTO dbo.Assumptions (Name, CategoryId, Value, Unit, Description, Source)
 (N'SubCategoryRollUp',   NULL, 1.0000, N'n/a',       N'Sub-category spend is added to its main category for thresholds; a sub-category with no factor uses its main category factor', N'See docs/data.md');
 GO
 
+/* Sprint 3: UK average for the footprint comparison (like NatWest's "how do you compare").
+   Household part of the UK footprint in 2023 = 407 (household goods and services)
+   + 122 (household heating and driving) = 529 of 699 MtCO2e, at about 10 tCO2e per person.
+   529 / 699 x 10,000 kg / 12 months = c. 631 kg per person per month.
+   Separate statement so it can be run on its own on an existing database. */
+IF NOT EXISTS (SELECT 1 FROM dbo.Assumptions WHERE Name = N'UkAvgMonthlyKgPerPerson')
+INSERT INTO dbo.Assumptions (Name, CategoryId, Value, Unit, Description, Source) VALUES
+(N'UkAvgMonthlyKgPerPerson', NULL, 631.0000, N'kgCO2e/month',
+ N'UK average household carbon footprint per person per month (household goods and services + household heating and driving). Covers more than the app tracks, so treat as a rough comparison',
+ N'UK Gov, Carbon footprint for the UK and England to 2023, Table 1 and per-capita figure');
+GO
+
+/* Test customers use fixed IDs ending in 1-4 so they match customers 1-4 in the test CSVs.
+   Real customers get their Entra user ID (uid) from the API at sign-in. */
 INSERT INTO dbo.Customers (CustomerId, PersonaType, DataSource) VALUES
-(1, NULL, N'test-data (v1-v3)'),
-(2, NULL, N'test-data (v1-v3)'),
-(3, NULL, N'test-data (v1-v3)'),
-(4, N'High Commuter (Heathrow)', N'test-data v3');   -- kept so v3 uploads can be tested
+('00000000-0000-0000-0000-000000000001', NULL, N'test-data (v1-v3)'),
+('00000000-0000-0000-0000-000000000002', NULL, N'test-data (v1-v3)'),
+('00000000-0000-0000-0000-000000000003', NULL, N'test-data (v1-v3)'),
+('00000000-0000-0000-0000-000000000004', N'High Commuter (Heathrow)', N'test-data v3');   -- kept so v3 uploads can be tested
 GO
 
 /* Rules are on MAIN categories only.
@@ -108,4 +122,21 @@ INSERT INTO dbo.RecommendationRules (CategoryId, MonthlyThresholdGBP, Recommenda
 (2, 250.00, N'Reduce takeaway meals, meal prep and batch cook', 0.1400),
 (3, 150.00, N'Reduce heating by 1C, switch off unused devices and optimise appliance use', 0.1900),
 (4, 250.00, N'Buy second-hand, repair before replacing and keep phones and electronics for longer', 0.1600);
+GO
+
+/* Sprint 3: a lower-carbon alternative and a practical action for each sub-category
+   in a main category that has a rule (Travel, Food, Utilities, Shopping).
+   Housing has no rule, so Rent and Mortgage have no action. */
+INSERT INTO dbo.RecommendationActions (CategoryId, LowerCarbonAlternative, ActionText, Source) VALUES
+(7,  N'Car share, bus or train',             N'Car share or take public transport for some of your regular journeys', N'Appendix B (travel)'),
+(8,  N'Off-peak and season tickets',          N'Already a lower-carbon choice; walk or cycle short trips where you can', N'Team decision'),
+(9,  N'Train for UK and short European trips', N'Take the train instead of flying for shorter journeys', N'Team decision'),
+(10, N'Plan meals and waste less food',       N'Plan meals, use leftovers and buy only what you need', N'WRAP food waste advice'),
+(11, N'Cook at home',                         N'Swap some takeaways and meals out for meal prep and batch cooking', N'Appendix B (food)'),
+(12, N'Switch off standby and use LED bulbs', N'Switch off devices at the wall and run appliances on full loads', N'Appendix B (utilities)'),
+(13, N'Turn the heating down 1C',             N'Turn the thermostat down by 1C and heat only the rooms you use', N'Appendix B (utilities); Energy Saving Trust advice'),
+(14, N'Shorter showers',                      N'Take shorter showers and fix dripping taps (less hot water too)', N'Team decision'),
+(15, N'Second-hand clothes',                  N'Buy second-hand, repair and keep clothes for longer', N'Team decision (same advice as the Shopping rule)'),
+(16, N'Refurbished devices',                  N'Keep phones and laptops longer, repair them, or buy refurbished', N'Team decision (same advice as the Shopping rule)'),
+(17, N'Second-hand or repaired furniture',    N'Repair before replacing and look for second-hand furniture', N'Team decision (same advice as the Shopping rule)');
 GO

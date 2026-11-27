@@ -1,5 +1,21 @@
 # React + TypeScript + Vite
 
+## Browser end-to-end test
+
+In GitHub Actions, open **DevSecOps CI/CD Pipeline**, then **Browser End-to-End Tests**. The job seeds an isolated SQL Server database, starts Vite and FastAPI, and uses Playwright to sign in as the synthetic C102 customer, save Groceries spending, and check both the saved result and the November 2026 seeded insights.
+
+The browser uses a test identity and FastAPI validates its token against a temporary signing key. The test exercises the application's token exchange, spending and insights routes, and SQL persistence. The Microsoft-hosted login page is covered by the manual deployed sign-in check.
+
+For local runs, use a fresh disposable SQL Server on `127.0.0.1:1433` with ODBC Driver 18 and the API dependencies installed. Set `DB_SERVER` to `127.0.0.1,1433`, `DB_NAME` to `CapstoneE2E`, and `DB_ADMIN_USER` to `sa`. Set `DB_ADMIN_PASSWORD` and `E2E_SQL_PASSWORD` to its password. From the repository root, seed the database with `python infra/database/init_db.py --with-test-data`. Then run the following from `frontend`, with ports 5173 and 8003 free.
+
+```powershell
+npm.cmd ci
+npx.cmd playwright install chromium
+npm.cmd run test:e2e -- --headed
+```
+
+Use a fresh database for another run because the test saves a fixed month for C102.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
