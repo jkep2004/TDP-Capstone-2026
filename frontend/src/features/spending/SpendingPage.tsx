@@ -70,7 +70,7 @@ function SpendingPage({ account, onSaved }: { account?: AccountInfo; onSaved?: (
             <h2 id="form-heading">{mode === 'manual' ? 'Enter spending manually' : 'Upload a CSV file'}</h2>
             <p id="spending-help" className="help-text">
               {mode === 'manual'
-                ? 'Enter £0 for categories you didn’t spend in. If you break down a category, you can leave unused amounts blank.'
+                ? 'Enter at least one amount. Blank categories and subcategories count as £0.'
                 : 'Choose the month the spending in your file belongs to.'}
             </p>
           </div>
