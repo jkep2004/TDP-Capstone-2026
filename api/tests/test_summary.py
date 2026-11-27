@@ -80,6 +80,35 @@ def test_summary_empty_month_returns_zeros(client, mock_db):
     assert body["categories"] == []
 
 
+def test_summary_unmeasured_category_is_null_and_last(client, mock_db):
+    mock_db.execute.return_value.fetchall.return_value = ROWS + [
+        (4, "Mortgage", Decimal("900.00"), None),
+    ]
+
+    body = client.get("/api/v1/summary/?month=2026-11-01").json()
+
+    mortgage = body["categories"][-1]
+    assert mortgage["category"] == "Mortgage"
+    assert mortgage["carbon_kg"] is None          # JSON null, not 0
+    assert mortgage["share_pct"] is None
+    assert body["total_carbon_kg"] == 1500.0      # unchanged by Mortgage
+    assert body["total_spend_gbp"] == 1700.0      # spend still counts
+    assert body["top_category"] == "Travel"
+    assert [c["share_pct"] for c in body["categories"][:3]] == [66.67, 20.0, 13.33]
+
+
+def test_summary_only_unmeasured_categories_has_no_top(client, mock_db):
+    mock_db.execute.return_value.fetchall.return_value = [
+        (4, "Mortgage", Decimal("900.00"), None),
+    ]
+
+    body = client.get("/api/v1/summary/?month=2026-11-01").json()
+
+    assert body["total_carbon_kg"] == 0
+    assert body["top_category"] is None
+    assert body["categories"][0]["carbon_kg"] is None
+
+
 def test_summary_uses_token_customer_not_query(client, mock_db):
     client.get("/api/v1/summary/?month=2026-11-01&customer_id=someone-else")
 

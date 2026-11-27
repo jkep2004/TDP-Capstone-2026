@@ -345,7 +345,7 @@ jobs:
           import httpx
 
           client = httpx.Client(base_url="http://127.0.0.1:8000", timeout=10.0)
-          endpoint = "/api/v1/calculate"
+          endpoint = "/api/v1/calculate/"
 
           tests = [
               ("Invalid Input / Unexpected Params", {"invalid_field": "malformed", "extra": 999}),
@@ -482,4 +482,3 @@ jobs:
           curl -fsS --retry 6 --retry-delay 10 --retry-all-errors --max-time 20 \
             "https://ca-tdp2026-carbon-team3-api-dev.blackground-28a725c3.uksouth.azurecontainerapps.io/api/v1/health/database"
           echo "Smoke test passed."
-# 
