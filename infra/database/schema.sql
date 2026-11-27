@@ -396,12 +396,12 @@ LEFT JOIN dbo.CustomerChallenges cc
 GO
 
 /* 3. Medal per customer, from the number of completed challenges.
-      1+ = Bronze, 3+ = Silver, 5+ = Gold (thresholds can be changed here). */
+      1+ = Bronze, 2+ = Silver, 3+ = Gold (thresholds can be changed here). */
 CREATE OR ALTER VIEW dbo.vw_CustomerMedals AS
 SELECT c.CustomerId,
        COUNT(cc.CustomerChallengeId) AS CompletedChallenges,
-       CASE WHEN COUNT(cc.CustomerChallengeId) >= 5 THEN N'Gold'
-            WHEN COUNT(cc.CustomerChallengeId) >= 3 THEN N'Silver'
+       CASE WHEN COUNT(cc.CustomerChallengeId) >= 3 THEN N'Gold'
+            WHEN COUNT(cc.CustomerChallengeId) >= 2 THEN N'Silver'
             WHEN COUNT(cc.CustomerChallengeId) >= 1 THEN N'Bronze'
        END AS Medal
 FROM dbo.Customers c
