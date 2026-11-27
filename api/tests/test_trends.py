@@ -91,6 +91,19 @@ def test_trends_empty_when_no_data(client, mock_db):
     assert response.json()["months"] == []
 
 
+def test_trends_unmeasured_category_is_null_and_left_out_of_total(client, mock_db):
+    mock_db.execute.return_value.fetchall.return_value = [
+        (date(2026, 11, 1), 1, "Travel", Decimal("250.00"), Decimal("600.00")),
+        (date(2026, 11, 1), 4, "Mortgage", Decimal("900.00"), None),
+    ]
+
+    month = client.get("/api/v1/trends/").json()["months"][-1]
+
+    assert month["total_carbon_kg"] == 600.0
+    mortgage = next(c for c in month["categories"] if c["category"] == "Mortgage")
+    assert mortgage["carbon_kg"] is None
+
+
 def test_trends_uses_token_customer_not_query(client, mock_db):
     client.get("/api/v1/trends/?customer_id=someone-else")
 

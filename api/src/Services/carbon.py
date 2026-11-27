@@ -63,10 +63,11 @@ def monthly_spend(weekly_amounts: list[float]) -> float:
     return (sum(weekly_amounts) / len(weekly_amounts)) * WEEKS_PER_MONTH
 
 
-def carbon_for(monthly: float, factor: float | None) -> float:
-    
+def carbon_for(monthly: float, factor: float | None) -> float | None:
+    """Monthly carbon in kg CO2e. None means "not measured" (e.g. Mortgage has no factor),
+    which is different from 0 ("measured, no emissions")."""
     if factor is None:
-        return 0.0
+        return None
     return monthly * factor
 
 
@@ -93,8 +94,10 @@ def calculate_impact(items: list[SpendingItem], db) -> dict:
             "subcategory": item.subcategoryID,
             "amount": item.amount,
             "week": item.week,
-            "carbonKg": round(
-                category_carbon[category_id] / len(weekly_by_category[category_id]), 2
+            "carbonKg": (
+                None
+                if category_carbon[category_id] is None
+                else round(category_carbon[category_id] / len(weekly_by_category[category_id]), 2)
             ),
         }
         for item, category_id in zip(items, item_category_ids)
@@ -102,7 +105,8 @@ def calculate_impact(items: list[SpendingItem], db) -> dict:
 
     return {
         "status": "success",
-        "totalCarbonKg": round(sum(category_carbon.values()), 2),
+        # Unmeasured categories are left out of the total rather than counted as 0.
+        "totalCarbonKg": round(sum(kg for kg in category_carbon.values() if kg is not None), 2),
         "breakdown": breakdown,
         "recommendations": [],
     }

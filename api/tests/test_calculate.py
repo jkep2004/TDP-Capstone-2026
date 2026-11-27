@@ -191,7 +191,7 @@ def test_calculate_with_parent_category(client):
     assert breakdown_item["subcategory"] is None
     assert breakdown_item["amount"] == 100.0
     assert breakdown_item["week"] == 1
-    assert breakdown_item["carbonKg"] == 0
+    assert breakdown_item["carbonKg"] is None  # mocked DB gives no factor -> not measured
 
 def test_calculate_with_valid_subcategory(client):
     payload = {

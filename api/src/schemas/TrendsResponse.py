@@ -7,7 +7,7 @@ class TrendCategory(BaseModel, extra="forbid"):
     category_id: int
     category: str
     monthly_spend_gbp: float = Field(ge=0)
-    carbon_kg: float = Field(ge=0)
+    carbon_kg: float | None = Field(ge=0, description="null when the category is not measured (e.g. Mortgage)")
 
 
 class MonthTrend(BaseModel, extra="forbid"):

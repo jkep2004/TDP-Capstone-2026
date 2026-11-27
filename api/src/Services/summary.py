@@ -37,7 +37,7 @@ def get_monthly_by_category(db, customer_id: str, month: date) -> list[dict]:
             "category_id": row[0],
             "category": row[1],
             "monthly_spend_gbp": float(row[2]),
-            "carbon_kg": float(row[3]) if row[3] is not None else 0.0,
+            "carbon_kg": float(row[3]) if row[3] is not None else None,
         }
         for row in rows
     ]
@@ -47,10 +47,14 @@ def build_summary(db, customer_id: str, month: date) -> dict:
     """Payload for SummaryResponse. Categories are sorted by carbon, highest first."""
     rows = get_monthly_by_category(db, customer_id, month)
 
-    # Highest carbon first; category id breaks ties so the output is deterministic.
-    rows.sort(key=lambda row: (-row["carbon_kg"], row["category_id"]))
+    # Highest carbon first, unmeasured (None) last; category id breaks ties so the output is deterministic.
+    rows.sort(key=lambda row: (
+        row["carbon_kg"] is None,
+        -(row["carbon_kg"] or 0.0),
+        row["category_id"],
+    ))
 
-    total_carbon = sum(row["carbon_kg"] for row in rows)
+    total_carbon = sum(row["carbon_kg"] for row in rows if row["carbon_kg"] is not None)
     total_spend = sum(row["monthly_spend_gbp"] for row in rows)
 
     return {
@@ -63,8 +67,10 @@ def build_summary(db, customer_id: str, month: date) -> dict:
                 "category_id": row["category_id"],
                 "category": row["category"],
                 "monthly_spend_gbp": round(row["monthly_spend_gbp"], 2),
-                "carbon_kg": round(row["carbon_kg"], 2),
-                "share_pct": carbon_share(row["carbon_kg"], total_carbon),
+                "carbon_kg": round(row["carbon_kg"], 2) if row["carbon_kg"] is not None else None,
+                "share_pct": (
+                    carbon_share(row["carbon_kg"], total_carbon) if row["carbon_kg"] is not None else None
+                ),
             }
             for row in rows
         ],
