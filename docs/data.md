@@ -1,7 +1,5 @@
 # Data Documentation
 
-Owner: Data Engineer (Yihong Wang)
-
 ## 1. Data sources
 
 | Data | Source | Notes |
