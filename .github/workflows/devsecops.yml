@@ -316,7 +316,6 @@ jobs:
           pip install -r api/requirements.txt httpx uvicorn
 
       - name: Start API & Run DAST Checks on POST /calculate
-        shell: bash # use bash to run background process and loop
         env:
           DB_SERVER: ${{ secrets.DB_SERVER }}
           DB_NAME: ${{ secrets.DB_NAME }}
