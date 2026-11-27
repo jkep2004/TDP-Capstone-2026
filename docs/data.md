@@ -1,5 +1,6 @@
 # Data Documentation
 
+Owner: Data Engineer (Yihong Wang)
 
 ## 1. Data sources
 
@@ -15,7 +16,7 @@
 
 No real customer data is used. All data is synthetic or test data.
 
-**AI use.** The Sprint 3 sample spending, the expected results and parts of the SQL were drafted with AI assistance (Claude). They were reviewed before use: the data-quality checks in `queries.sql` (sections 4, 7 and 8) all return no rows on Azure, and the view results match `sample_expected_results.md`.
+**AI use.** The Sprint 3 sample spending, the expected results and parts of the SQL were drafted with AI assistance (Claude). They were reviewed before use: the data-quality checks in `queries.sql` (sections 4, 6, 7, 8 and 9) all return no rows on Azure, and the view results match `sample_expected_results.md`.
 
 ## 2. Tables and views (`infra/database/schema.sql`)
 
@@ -35,6 +36,9 @@ No real customer data is used. All data is synthetic or test data.
 | `vw_CustomerMonthlyFootprint` (view) | Total spend and carbon per customer and month, kg CO2e per £, change from the previous month, and comparison with the UK average |
 | `vw_CategoryInsights` (view) | Each main category's spend and carbon, its share of the month (%), its rank by carbon, and change from the previous month |
 | `vw_Recommendations` (view) | One row per main category over its threshold: advice, the sub-category to focus on, its alternative and action, £ saved, kg CO2e saved and priority |
+| `CustomerChallenges` (table) | Each customer's challenges: category, month, status (NOT_STARTED / IN_PROGRESS / COMPLETED), started and completed dates. A challenge is a recommendation the customer has chosen to act on |
+| `vw_CustomerChallenges` (view) | Every recommendation with its challenge status, for the API to list challenges |
+| `vw_CustomerMedals` (view) | Completed challenges per customer and medal: 1+ Bronze, 3+ Silver, 5+ Gold |
 | `vw_MonthlySavingsSummary` (view) | One row per customer and month: number of recommendations, total £ saved, total kg CO2e saved, footprint after the savings and % of footprint saved |
 | `vw_TopSubCategories` (view) | Carbon per sub-category, ranked within the month, to show what drives the footprint (e.g. Gas rather than Utilities) |
 
@@ -62,6 +66,119 @@ After `sample_spending.sql` as well: `Customers` 12 and `Spending` 503 (27 + 476
 | 6 Other | none | 0.3598 | none | none | none |
 
 The test CSVs only have Travel, Food and Utilities, so all 27 test rows are on those main categories. Sub-categories, Shopping, Housing and Other have factors and rules ready but no test spending yet; they fill up when users upload or enter spending. Sub-category factors are in section 3.
+
+### Database design
+
+**Entity relationship diagram**
+
+```mermaid
+erDiagram
+    Categories ||--o{ Categories : "parent of"
+    Categories ||--o{ EmissionsFactors : "has"
+    Categories ||--o{ Spending : "classifies"
+    Categories ||--o{ RecommendationRules : "main category rule"
+    Categories ||--o| RecommendationActions : "sub-category action"
+    Categories ||--o{ Assumptions : "may apply to"
+    Customers ||--o{ Spending : "records"
+
+    Categories {
+        int CategoryId PK
+        nvarchar Name UK
+        int ParentCategoryId FK
+        bit IsCarbonTracked
+    }
+    EmissionsFactors {
+        int EmissionsFactorId PK
+        int CategoryId FK
+        decimal KgCO2ePerGBP
+        nvarchar Source
+        nvarchar Version
+        date EffectiveDate
+    }
+    Customers {
+        uniqueidentifier CustomerId PK
+        nvarchar PersonaType
+        nvarchar DataSource
+    }
+    Spending {
+        int SpendingId PK
+        uniqueidentifier CustomerId FK
+        int CategoryId FK
+        date SpendMonth
+        int WeekNumber
+        decimal AmountGBP
+        datetime2 CreatedAt
+    }
+    RecommendationRules {
+        int RuleId PK
+        int CategoryId FK
+        decimal MonthlyThresholdGBP
+        nvarchar RecommendationText
+        decimal ReductionPercentage
+    }
+    RecommendationActions {
+        int ActionId PK
+        int CategoryId FK
+        nvarchar LowerCarbonAlternative
+        nvarchar ActionText
+        nvarchar Source
+    }
+    Assumptions {
+        int AssumptionId PK
+        nvarchar Name UK
+        int CategoryId FK
+        decimal Value
+        nvarchar Unit
+        nvarchar Source
+    }
+```
+
+**How the views build on each other**
+
+```mermaid
+flowchart LR
+    C[Categories] --> H[vw_CategoryHierarchy]
+    C --> EF[vw_EffectiveEmissionsFactors]
+    F[EmissionsFactors] --> EF
+    S[Spending] --> E[vw_EstimatedMonthlySpend]
+    A[Assumptions] --> E
+    E --> M[vw_MonthlyByMainCategory]
+    EF --> M
+    H --> M
+    E --> TS[vw_TopSubCategories]
+    EF --> TS
+    H --> TS
+    M --> CF[vw_CustomerMonthlyFootprint]
+    A --> CF
+    M --> CI[vw_CategoryInsights]
+    M --> R[vw_Recommendations]
+    E --> R
+    EF --> R
+    H --> R
+    RR[RecommendationRules] --> R
+    RA[RecommendationActions] --> R
+    CF --> SS[vw_MonthlySavingsSummary]
+    R --> SS
+```
+
+**Design decisions**
+
+| Decision | Why |
+|---|---|
+| Spending is stored as entered; every figure is calculated in views | One source of truth. The API and front end read the views, so the same customer gets the same numbers everywhere, and changing a factor or rule changes every result without touching stored data |
+| Factors, thresholds, reduction % and actions are rows, not code | They can be updated in `seed.sql` (or by an admin endpoint) without a code change or redeploy. Each row has its source |
+| Two-level categories (main and sub) in one table | Matches bank categorisation (Level 1 and Level 2). Thresholds work on main categories, carbon on sub-categories |
+| Factors are versioned (`Version`, `EffectiveDate`) | The government updates the multipliers. A new version can be added without losing the old one, and the view uses the latest |
+| `CustomerId` is the Microsoft Entra user ID (UUID) | Links each customer to their SSO login, with no separate user table or password |
+| Validation in the database as well as the API | `CHECK`, `UNIQUE` and foreign-key constraints reject invalid data even if the API misses it (section 4) |
+| Month stored as the 1st, week as 1-5 or empty | Supports both weekly CSV uploads and a manual monthly total (section 3) |
+
+**Security and access**
+
+- Connection details are only in the local `.env` file and GitHub Secrets, never in the repo.
+- The Azure SQL firewall only allows the API and the team's IP addresses.
+- The API uses parameterised queries, so customer input is never run as SQL.
+- Only synthetic and test data is stored; there is no real customer data and no personal details beyond the Entra user ID.
 
 ## 3. How the data is used
 
@@ -209,3 +326,21 @@ Connection details go in your local `.env` (never commit it). Then run, in order
 4. `sample_spending.sql` - optional, Sprint 3 sample data: 8 customers, Sep-Nov 2026 (476 rows). Expected results in `docs/sample_expected_results.md`.
 5. `queries.sql` - checks the data and data quality. Expected: 19 categories, 27 spending rows after step 3, and every data-quality check returns no rows.
 
+## 6. Known limitations and future improvements
+
+**Limitations**
+- Carbon is estimated from spend, using national average factors per £. Two purchases with the same price in the same category get the same carbon, even if one is second-hand or lower-carbon.
+- Some category factors are unweighted averages of several COICOP rows (section 3).
+- Flights look low-carbon per £ because tickets are expensive; distance-based data would be more accurate.
+- A month entered as weekly spending is an estimate (weekly average × 4.33). Fewer than 3 weeks of data makes it less reliable; `queries.sql` flags these months.
+- The UK average comparison is per person, while some customers are households.
+- Thresholds are per household and the same for every customer.
+- The government is reviewing how the multipliers are published from 2027, so the factors will need updating.
+
+**Future improvements**
+- Map the bank's own transaction categories (e.g. Moneyhub Level 2) to these categories, so spending is captured automatically instead of entered.
+- Use weighted averages (ONS household spending) for categories made of several COICOP rows.
+- Use activity-based data where available, such as distance for flights and kWh for energy.
+- Set thresholds by household size or persona instead of one value for everyone.
+- Add a scheduled job that runs the `queries.sql` checks and alerts the team if any return rows.
+- Load a new factor version when the government publishes updated multipliers.
