@@ -36,7 +36,7 @@ No real customer data is used. All data is synthetic or test data.
 | `vw_Recommendations` (view) | One row per main category over its threshold: advice, the sub-category to focus on, its alternative and action, £ saved, kg CO2e saved and priority |
 | `CustomerChallenges` (table) | Each customer's challenges: category, month, status (NOT_STARTED / IN_PROGRESS / COMPLETED), started and completed dates. A challenge is a recommendation the customer has chosen to act on |
 | `vw_CustomerChallenges` (view) | Every recommendation with its challenge status, for the API to list challenges |
-| `vw_CustomerMedals` (view) | Completed challenges per customer and medal: 1+ Bronze, 3+ Silver, 5+ Gold |
+| `vw_CustomerMedals` (view) | Completed challenges per customer and medal: 1+ Bronze, 2+ Silver, 3+ Gold |
 | `vw_MonthlySavingsSummary` (view) | One row per customer and month: number of recommendations, total £ saved, total kg CO2e saved, footprint after the savings and % of footprint saved |
 | `vw_TopSubCategories` (view) | Carbon per sub-category, ranked within the month, to show what drives the footprint (e.g. Gas rather than Utilities) |
 
