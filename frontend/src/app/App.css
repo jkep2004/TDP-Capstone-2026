@@ -137,3 +137,8 @@
   .auth-intro h1 { font-size: clamp(2.9rem, 11vw, 4.5rem); }
   .auth-action { align-items: start; padding: 2.15rem var(--gutter) 2.5rem; }
 }
+
+@media (max-width: 440px) {
+  .account-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .15rem; }
+  .account-nav button { flex-direction: column; gap: .25rem; padding: .45rem .2rem; font-size: .82rem; white-space: normal; }
+}

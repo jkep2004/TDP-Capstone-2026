@@ -135,6 +135,61 @@ export async function getInsights(account: AccountInfo, signal: AbortSignal) {
   };
 }
 
+export type ChallengeStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+
+export type Challenge = {
+  category_id: number;
+  category: string;
+  recommendation: string;
+  action: string | null;
+  lower_carbon_alternative: string | null;
+  status: ChallengeStatus;
+};
+
+export type ChallengeMedal = {
+  completed_challenges: number;
+  medal: "Bronze" | "Silver" | "Gold" | null;
+};
+
+export async function getChallenges(account: AccountInfo, signal: AbortSignal) {
+  const { access_token } = await exchangeToken(account, insightsApiUrl, signal);
+
+  async function request<T>(path: string, init: RequestInit): Promise<T> {
+    const response = await fetch(`${insightsApiUrl}/api/v1/${path}`, {
+      ...init,
+      headers: { Authorization: `Bearer ${access_token}`, ...init.headers },
+    });
+    if (response.status === 401 || response.status === 403) {
+      throw new CustomerError(`Challenge request failed (HTTP ${response.status})`, "Please sign out and sign in again.");
+    }
+    if (!response.ok) throw new Error(`Challenge request failed (HTTP ${response.status}).`);
+    return response.json();
+  }
+
+  const getMedal = (requestSignal?: AbortSignal) => request<ChallengeMedal>("challenges/medal", { signal: requestSignal });
+  const [trends, medal] = await Promise.all([
+    request<{ months: { month: string }[] }>("trends/?months=12", { signal }),
+    getMedal(signal),
+  ]);
+
+  return {
+    months: trends.months.map(({ month }) => month.slice(0, 7)).sort(),
+    medal,
+    getMedal,
+    async loadMonth(month: string, requestSignal: AbortSignal) {
+      const response = await request<{ challenges: Challenge[] }>(`challenges/?month=${month}-01`, { signal: requestSignal });
+      return response.challenges;
+    },
+    updateStatus(month: string, categoryId: number, status: Exclude<ChallengeStatus, "NOT_STARTED">) {
+      return request<Challenge>(`challenges/${categoryId}?month=${month}-01`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+    },
+  };
+}
+
 export async function saveSpending(
   entries: (Omit<SpendingEntry, "customerID" | "week"> & { week: number | null })[],
   account: AccountInfo,

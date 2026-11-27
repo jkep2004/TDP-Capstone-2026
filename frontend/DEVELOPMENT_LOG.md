@@ -22,6 +22,7 @@ The [frontend API client](src/services/api.ts) exchanges a Microsoft Entra acces
 | Preview CSV carbon | `POST /api/v1/calculate/` estimates carbon for the selected weekly rows. |
 | Save a month | `POST /api/v1/spend/month` creates the month. A `409` with `spending_month_exists` opens the confirmation. The app sends `PUT /api/v1/spend/month` only after confirmation. Both requests use the signed-in customer and a single selected month. |
 | Load Overview and recap | `GET /api/v1/trends/?months=12` loads available history. For the selected month, the client requests `/api/v1/summary/`, `/api/v1/recommendations/`, and `/api/v1/savings/` with the month parameter. The recap uses those results. |
+| Track sustainability challenges | `GET /api/v1/challenges/?month=YYYY-MM-01` returns challenges for categories above their spending thresholds. `PATCH /api/v1/challenges/{category_id}?month=YYYY-MM-01` starts or completes a challenge. `GET /api/v1/challenges/medal` returns the signed-in customer's total across months. Bronze, Silver, and Gold are awarded at one, two, and three completions. |
 
 Carbon figures are spend-based estimates using the backend's seeded emissions factors. Recommendation rules apply when spending is strictly above a category threshold. The backend calculates potential savings from the full category total and the rule's reduction percentage. For example, £300 in Groceries with no other spending gives **152.7 kg CO₂e** and **£42 in potential savings** using the seeded figures. See the [data documentation](../docs/data.md) for the assumptions and the [seed script](../infra/database/seed.sql) for the factors and rules.
 
@@ -38,7 +39,7 @@ Carbon figures are spend-based estimates using the backend's seeded emissions fa
 - The backend debug endpoint `/api/user` still returns user metadata to authenticated callers. The current frontend uses the token exchange for its session. Review removal or restriction before a production release, along with backend identity logging and database error logging for data minimisation.
 - The frontend uses the save outcome. The API still returns saved record IDs and checks the customer ID in the payload against the authenticated user. A production follow-up is to derive the customer solely from the authenticated request and narrow the save and token exchange responses to the fields customers' screens need.
 - The summary API currently converts missing carbon estimates to zero. Preserve missing estimates in the API contract so customers can distinguish unavailable estimates from a zero estimate in the category breakdown.
-- Sustainability challenges were deferred by the team for Sprint 4 and remain a gap against the wider learner brief.
+- Sustainability challenges were added after Sprint 4. Frontend tests cover starting and completing challenges, switching months, and recovering after a lost save response. The existing Playwright spending and insights journey does not exercise challenges.
 
 ## Local development and verification
 
