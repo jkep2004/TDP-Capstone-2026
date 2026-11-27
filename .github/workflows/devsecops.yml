@@ -331,7 +331,6 @@ jobs:
           APP_JWT_ALGORITHM: ${{ secrets.APP_JWT_ALGORITHM }}
           APP_JWT_EXPIRE_MINUTES: ${{ secrets.APP_JWT_EXPIRE_MINUTES }}
         run: |
-          set -o pipefail
           python -m uvicorn src.main:app --app-dir api --host 127.0.0.1 --port 8000 > api-server.log 2>&1 &
 
           # wait for API to be ready (up to 15 seconds)
