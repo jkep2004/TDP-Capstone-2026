@@ -143,7 +143,7 @@ jobs:
 
       - name: Upload Test Evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: 2-unit-test-report
           path: pytest-report.xml
@@ -238,7 +238,7 @@ jobs:
 
       - name: Upload SAST Evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: 3-sast-bandit-report
           path: bandit-report.json
@@ -275,7 +275,7 @@ jobs:
 
       - name: Upload SCA Evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: 4-sca-dependency-reports
           path: |
@@ -367,7 +367,7 @@ jobs:
 
       - name: Upload DAST Evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: 5-dast-security-report
           path: |
