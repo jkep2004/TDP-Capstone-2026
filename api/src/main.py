@@ -9,7 +9,7 @@ import structlog
 from .Core.logging import configure_logging
 configure_logging("ERROR") # TODO: Change to INFO or DEBUG in dev for more detailed logs
 
-from .Routers import auth, calculate, categories, health, recommendations, savings, spend, summary, trends
+from .Routers import auth, calculate, categories, health, recommendations, savings, spend, summary, trends, challenges
 from .Core.auth import get_current_user
 from .Core.config import check_env_variables
 from .Middleware.logging import RequestLoggingMiddleware
@@ -61,6 +61,12 @@ tags_metadata = [
         "name": "Recommendations",
         "description": """
         Provides spending recommendations for the signed-in customer.
+        """,
+    },
+    {
+        "name": "Challenges",
+        "description": """
+        Provides Challenges for the signed-in customer to help them reduce spending.
         """,
     },
     {
@@ -142,6 +148,7 @@ app.include_router(categories.router, prefix=prefix, tags=["Categories"])
 app.include_router(health.router, prefix=prefix, tags=["Health"])
 app.include_router(spend.router, prefix=prefix, tags=["Spending"])
 app.include_router(recommendations.router, prefix=prefix, tags=["Recommendations"])
+app.include_router(challenges.router, prefix=prefix, tags=["Challenges"])
 app.include_router(savings.router, prefix=prefix, tags=["Savings"])
 app.include_router(summary.router, prefix=prefix, tags=["Summary"])
 app.include_router(trends.router, prefix=prefix, tags=["Trends"])
