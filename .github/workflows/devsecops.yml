@@ -482,3 +482,4 @@ jobs:
           curl -fsS --retry 6 --retry-delay 10 --retry-all-errors --max-time 20 \
             "https://ca-tdp2026-carbon-team3-api-dev.blackground-28a725c3.uksouth.azurecontainerapps.io/api/v1/health/database"
           echo "Smoke test passed."
+# 
