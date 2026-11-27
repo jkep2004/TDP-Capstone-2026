@@ -56,19 +56,39 @@ it('shows an empty state and disables saving when the API returns no categories'
   expect(screen.getByRole('button', { name: 'Save spending' })).toBeDisabled()
 })
 
-it('blocks a save when every subcategory amount is blank', async () => {
+it.each([false, true])('blocks a save when all visible amounts are blank (itemized: %s)', async (itemized) => {
   vi.mocked(getCategories).mockResolvedValueOnce([
     { id: 1, name: 'Food', parent_id: null },
     { id: 2, name: 'Groceries', parent_id: 1 },
+    { id: 3, name: 'Utilities', parent_id: null },
   ])
   const user = userEvent.setup()
   render(<SpendingForm month="2026-03" account={account} />)
 
-  await user.click(await screen.findByRole('checkbox', { name: 'By subcategory for Food' }))
+  const food = await screen.findByRole('spinbutton', { name: 'Food (£)' })
+  if (itemized) {
+    await user.type(food, '25')
+    await user.click(screen.getByRole('checkbox', { name: 'By subcategory for Food' }))
+  }
   await user.click(screen.getByRole('button', { name: 'Save spending' }))
 
   expect(await screen.findByRole('alert')).toHaveTextContent('Enter at least one spending amount.')
   expect(saveSpending).not.toHaveBeenCalled()
+})
+
+it('accepts an explicit zero and treats blank categories as zero', async () => {
+  const user = userEvent.setup()
+  render(<SpendingForm month="2026-03" account={account} />)
+
+  await user.type(await screen.findByRole('spinbutton', { name: /Food/ }), '0')
+  await user.click(screen.getByRole('button', { name: 'Save spending' }))
+
+  expect(await screen.findByText('Spending saved for March 2026 (£0.00).')).toBeInTheDocument()
+  expect(saveSpending).toHaveBeenCalledExactlyOnceWith([
+    { categoryID: 1, amount: 0, month: '2026-03-01', week: null },
+    { categoryID: 2, amount: 0, month: '2026-03-01', week: null },
+    { categoryID: 3, amount: 0, month: '2026-03-01', week: null },
+  ], account, undefined)
 })
 
 it.each(['-1', '0.001', '100001'])('blocks an invalid amount of %s', async (amount) => {
@@ -95,7 +115,6 @@ it('keeps entered amounts after a failed save and allows a retry', async () => {
   const save = screen.getByRole('button', { name: 'Save spending' })
   await user.type(food, '0.10')
   await user.type(screen.getByRole('spinbutton', { name: /Travel/ }), '0.20')
-  await user.type(screen.getByRole('spinbutton', { name: /Utilities/ }), '0')
   await user.click(save)
 
   expect(await screen.findByRole('alert')).toHaveTextContent('We couldn’t save your spending. Please try again.')
