@@ -416,7 +416,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Publish FastAPI Backend
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile.api
@@ -428,7 +428,7 @@ jobs:
           cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max,scope=backend' || '' }}
 
       - name: Build and Publish Vite Frontend
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
