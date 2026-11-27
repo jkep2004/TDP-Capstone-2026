@@ -74,7 +74,7 @@ function SpendingForm({ month, account, onSaved, onSavingChange, confirmReplacem
     currency: 'GBP',
   }).format(totalPence / 100)
 
-  const renderAmount = (id: number, inputId: string, required = false) => (
+  const renderAmount = (id: number, inputId: string) => (
     <input
       id={inputId}
       type="number"
@@ -87,7 +87,6 @@ function SpendingForm({ month, account, onSaved, onSavingChange, confirmReplacem
       aria-describedby={invalidField === inputId ? 'manual-spending-error' : undefined}
       value={amounts[id] ?? ''}
       onChange={(event) => setAmounts({ ...amounts, [id]: event.target.value })}
-      required={required}
     />
   )
 
@@ -109,17 +108,17 @@ function SpendingForm({ month, account, onSaved, onSavingChange, confirmReplacem
           setError('Choose a month for your spending.')
           return
         }
-        const invalid = event.currentTarget.querySelector<HTMLInputElement>('input[type="number"]:invalid')
+        const amountFields = Array.from(event.currentTarget.querySelectorAll<HTMLInputElement>('input[type="number"]'))
+        const invalid = amountFields.find((field) => !field.validity.valid)
         if (invalid) {
           setInvalidField(invalid.id)
-          setError(invalid.validity.valueMissing
-            ? 'Enter a total for each category, or £0 if you didn’t spend in it.'
-            : 'Enter amounts between £0 and £100,000, using up to two decimal places.')
+          setError('Enter amounts between £0 and £100,000, using up to two decimal places.')
           invalid.focus()
           return
         }
-        if (entries.length === 0) {
+        if (!amountFields.some((field) => field.value !== '')) {
           setError('Enter at least one spending amount.')
+          amountFields[0]?.focus()
           return
         }
         requestPending.current = true
@@ -171,7 +170,7 @@ function SpendingForm({ month, account, onSaved, onSavingChange, confirmReplacem
                   {expanded ? <span id={labelId} className="spending-category-name">{name}</span>
                     : <label id={labelId} htmlFor={inputId}>{name} (£)</label>}
                 </div>
-                {!expanded && renderAmount(id, inputId, true)}
+                {!expanded && renderAmount(id, inputId)}
                 {subcategories.length > 0 && (
                   <label className="spending-breakdown">
                     <input

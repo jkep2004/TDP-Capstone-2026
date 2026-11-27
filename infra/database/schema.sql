@@ -10,6 +10,7 @@
    Re-runnable: drops and recreates all tables.
    ===================================================================== */
 
+DROP TABLE IF EXISTS dbo.CustomerChallenges;
 DROP TABLE IF EXISTS dbo.RecommendationActions;
 DROP TABLE IF EXISTS dbo.Spending;
 DROP TABLE IF EXISTS dbo.RecommendationRules;
@@ -341,4 +342,70 @@ FROM dbo.vw_CustomerMonthlyFootprint f
 LEFT JOIN dbo.vw_Recommendations r
        ON r.CustomerId = f.CustomerId AND r.SpendMonth = f.SpendMonth
 GROUP BY f.CustomerId, f.SpendMonth, f.TotalCarbonKg;
+GO
+
+/* ---------- Sprint 4: challenges and medals ---------- */
+/* 1. Each customer's progress on a challenge.
+      A row is added when the customer starts a challenge.
+      No row = 'NOT_STARTED'. */
+CREATE TABLE dbo.CustomerChallenges (
+        CustomerChallengeId INT IDENTITY(1,1) PRIMARY KEY,
+        CustomerId  UNIQUEIDENTIFIER NOT NULL
+                    CONSTRAINT FK_Challenges_Customer REFERENCES dbo.Customers(CustomerId),
+        CategoryId  INT NOT NULL
+                    CONSTRAINT FK_Challenges_Category REFERENCES dbo.Categories(CategoryId),
+        SpendMonth  DATE NOT NULL
+                    CONSTRAINT CK_Challenges_Month CHECK (DAY(SpendMonth) = 1),
+        Status      NVARCHAR(20) NOT NULL
+                    CONSTRAINT DF_Challenges_Status DEFAULT N'IN_PROGRESS'
+                    CONSTRAINT CK_Challenges_Status
+                        CHECK (Status IN (N'NOT_STARTED', N'IN_PROGRESS', N'COMPLETED')),
+        StartedAt   DATETIME2 NOT NULL CONSTRAINT DF_Challenges_Started DEFAULT SYSUTCDATETIME(),
+        CompletedAt DATETIME2 NULL,
+        CONSTRAINT UQ_CustomerChallenge UNIQUE (CustomerId, CategoryId, SpendMonth),
+        CONSTRAINT CK_Challenges_Completed CHECK (
+            (Status =  N'COMPLETED' AND CompletedAt IS NOT NULL) OR
+            (Status <> N'COMPLETED' AND CompletedAt IS NULL))
+    );
+GO
+
+/* 2. Every recommendation with its challenge status.
+      The API reads this view to list a customer's challenges.
+      Recommendation = main-category advice (always there).
+      LowerCarbonAlternative / Action = sub-category advice (only when
+      the customer entered sub-category spending). */
+CREATE OR ALTER VIEW dbo.vw_CustomerChallenges AS
+SELECT r.CustomerId,
+       r.SpendMonth,
+       r.CategoryId,
+       r.Category,
+       r.Recommendation,
+       r.LowerCarbonAlternative,
+       r.Action,
+       r.SavingGBP,
+       r.CarbonSavedKg,
+       r.Priority,
+       ISNULL(cc.Status, N'NOT_STARTED') AS Status,
+       cc.StartedAt,
+       cc.CompletedAt
+FROM dbo.vw_Recommendations r
+LEFT JOIN dbo.CustomerChallenges cc
+       ON cc.CustomerId = r.CustomerId
+      AND cc.CategoryId = r.CategoryId
+      AND cc.SpendMonth = r.SpendMonth;
+GO
+
+/* 3. Medal per customer, from the number of completed challenges.
+      1+ = Bronze, 2+ = Silver, 3+ = Gold (thresholds can be changed here). */
+CREATE OR ALTER VIEW dbo.vw_CustomerMedals AS
+SELECT c.CustomerId,
+       COUNT(cc.CustomerChallengeId) AS CompletedChallenges,
+       CASE WHEN COUNT(cc.CustomerChallengeId) >= 3 THEN N'Gold'
+            WHEN COUNT(cc.CustomerChallengeId) >= 2 THEN N'Silver'
+            WHEN COUNT(cc.CustomerChallengeId) >= 1 THEN N'Bronze'
+       END AS Medal
+FROM dbo.Customers c
+LEFT JOIN dbo.CustomerChallenges cc
+       ON cc.CustomerId = c.CustomerId AND cc.Status = N'COMPLETED'
+GROUP BY c.CustomerId;
 GO

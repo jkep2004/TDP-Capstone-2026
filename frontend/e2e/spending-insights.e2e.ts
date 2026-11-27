@@ -10,9 +10,6 @@ async function enterManualSpending(page: Page, foodAmount: string, itemized = fa
   const foodBreakdown = page.getByRole('checkbox', { name: 'By subcategory for Food' })
   await foodBreakdown.setChecked(itemized)
   await page.getByRole('spinbutton', { name: itemized ? 'Groceries (£)' : 'Food (£)', exact: true }).fill(foodAmount)
-  for (const category of ['Travel', 'Utilities', 'Shopping', 'Housing', 'Other']) {
-    await page.getByRole('spinbutton', { name: `${category} (£)`, exact: true }).fill('0')
-  }
 }
 
 test('saves, explores and replaces monthly spending', async ({ page }) => {
