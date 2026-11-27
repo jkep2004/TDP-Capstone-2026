@@ -38,7 +38,7 @@ def get_monthly_rows(db, customer_id: str) -> list[dict]:
             "category_id": row[1],
             "category": row[2],
             "monthly_spend_gbp": float(row[3]),
-            "carbon_kg": float(row[4]) if row[4] is not None else 0.0,
+            "carbon_kg": float(row[4]) if row[4] is not None else None,
         }
         for row in rows
     ]
@@ -64,7 +64,7 @@ def build_trends(db, customer_id: str, months: int) -> dict:
 
     for month in selected_months:
         categories = by_month[month]
-        total_carbon = sum(c["carbon_kg"] for c in categories)
+        total_carbon = sum(c["carbon_kg"] for c in categories if c["carbon_kg"] is not None)
         total_spend = sum(c["monthly_spend_gbp"] for c in categories)
 
         points.append({
@@ -82,7 +82,7 @@ def build_trends(db, customer_id: str, months: int) -> dict:
                     "category_id": c["category_id"],
                     "category": c["category"],
                     "monthly_spend_gbp": round(c["monthly_spend_gbp"], 2),
-                    "carbon_kg": round(c["carbon_kg"], 2),
+                    "carbon_kg": round(c["carbon_kg"], 2) if c["carbon_kg"] is not None else None,
                 }
                 for c in categories
             ],
