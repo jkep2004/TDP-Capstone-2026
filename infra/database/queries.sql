@@ -148,3 +148,19 @@ JOIN (SELECT CustomerId, SpendMonth, SUM(SavingGBP) AS SumSavingGBP, SUM(CarbonS
       FROM dbo.vw_Recommendations GROUP BY CustomerId, SpendMonth) r
   ON r.CustomerId = s.CustomerId AND r.SpendMonth = s.SpendMonth
 WHERE s.TotalSavingGBP <> r.SumSavingGBP OR s.TotalCarbonSavedKg <> r.SumCarbonKg;
+
+-- 10. Challenges: example and checks (each check should return no rows)
+SELECT * FROM dbo.vw_CustomerChallenges ORDER BY CustomerId, SpendMonth, Priority;
+SELECT * FROM dbo.vw_CustomerMedals WHERE CompletedChallenges > 0;
+
+-- Challenge on a category with no recommendation rule
+SELECT cc.* FROM dbo.CustomerChallenges cc
+LEFT JOIN dbo.RecommendationRules r ON r.CategoryId = cc.CategoryId
+WHERE r.RuleId IS NULL;
+
+-- Challenge started for a month the customer was not over the threshold
+SELECT cc.* FROM dbo.CustomerChallenges cc
+LEFT JOIN dbo.vw_Recommendations r
+  ON r.CustomerId = cc.CustomerId AND r.CategoryId = cc.CategoryId AND r.SpendMonth = cc.SpendMonth
+WHERE r.CustomerId IS NULL;
+
